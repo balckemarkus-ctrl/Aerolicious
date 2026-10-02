@@ -294,6 +294,8 @@ func _collect_tank_materials(n: Node) -> void:
 # die Grafikkarte ihn erst beim ersten Schuss, und das Spiel stockt einen Moment.
 func _prewarm() -> void:
 	await get_tree().process_frame
+	hud.set_hud_visible(true) # Anzeigen einmal hinter dem Menü zeichnen (Schrift, Flächen)
+	sfx.prewarm()
 	await get_tree().process_frame
 	var cam := player.cam.global_transform
 	var p := cam * Vector3(0, 0, -4)
@@ -317,6 +319,8 @@ func _prewarm() -> void:
 	shards.clear()
 	debris.items.clear()
 	drone.queue_free()
+	if hud.menu.visible:
+		hud.set_hud_visible(false)
 
 # ---------- Spielstand ----------
 

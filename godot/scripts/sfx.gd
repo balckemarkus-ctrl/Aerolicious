@@ -29,6 +29,11 @@ func _ready() -> void:
 	ambient.volume_db = -3.0
 	add_child(ambient)
 
+# Jeden Klang einmal lautlos abspielen, damit das erste echte Abspielen nicht stockt
+func prewarm() -> void:
+	for n in streams:
+		play(n, 1.0, -80.0)
+
 func _now() -> float:
 	return Time.get_ticks_msec() / 1000.0
 
