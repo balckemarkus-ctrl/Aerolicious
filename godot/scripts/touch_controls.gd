@@ -5,6 +5,7 @@ extends Control
 
 signal pause_pressed
 signal action_pressed
+signal mute_pressed
 
 const LOOK_SPEED := 0.005  # Radiant pro Bildpunkt Wischweg
 const STICK_RADIUS := 70.0
@@ -18,6 +19,7 @@ var held := {}             # Finger-Index -> Knopf
 var btn_jump: Panel
 var btn_pause: Panel
 var btn_action: Panel
+var btn_mute: Panel
 var action_label: Label
 var tap_targets: Array = [] # [Control, Callable]: antippbare HUD-Elemente (z. B. Munition), auch mit zweitem Finger
 
@@ -52,6 +54,7 @@ func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	btn_jump = _make_button("⤒", Vector2(120, 120), 54, glass(60))
 	btn_pause = _make_button("❚❚", Vector2(76, 76), 28, glass(38))
+	btn_mute = _make_button("🔊", Vector2(76, 76), 28, glass(38))
 	var green := glass(40, Color("3cc63a", 0.92))
 	btn_action = _make_button("", Vector2(250, 84), 28, green)
 	action_label = btn_action.get_child(0)
@@ -70,6 +73,10 @@ func _layout() -> void:
 	btn_jump.position = Vector2(scr.x - 120 - m - 8, scr.y - 120 - m)
 	btn_action.position = Vector2(scr.x - 250 - 170, scr.y - 84 - m - 18)
 	btn_pause.position = Vector2(scr.x - 76 - m, m - 8)
+	btn_mute.position = Vector2(scr.x - 2 * 76 - m - 14, m - 8)
+
+func set_muted(m: bool) -> void:
+	(btn_mute.get_child(0) as Label).text = "🔇" if m else "🔊"
 
 func set_action(text: String) -> void:
 	btn_action.visible = text != ""
@@ -85,7 +92,7 @@ func reset() -> void:
 	queue_redraw()
 
 func _button_at(p: Vector2) -> Panel:
-	for b in [btn_jump, btn_pause, btn_action]:
+	for b in [btn_jump, btn_pause, btn_action, btn_mute]:
 		if b.visible and b.get_global_rect().grow(12).has_point(p):
 			return b
 	return null
@@ -146,6 +153,8 @@ func _release(index: int, p: Vector2) -> void:
 				pause_pressed.emit()
 			elif b == btn_action:
 				action_pressed.emit()
+			elif b == btn_mute:
+				mute_pressed.emit()
 
 func _draw() -> void:
 	if stick_id < 0:

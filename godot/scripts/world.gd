@@ -11,6 +11,8 @@ var colliders: Array = [] # [x, z, radius] für runde Hindernisse
 var recycler_ring: Node3D
 var clouds: Array[Node3D] = []
 var water: MeshInstance3D
+var bubbles := MultiMesh.new()
+var bubble_data: Array = [] # [Position, Größe, Tempo, Phase]
 var _t := 0.0
 
 static func model(file: String) -> Node3D:
@@ -103,6 +105,55 @@ func _ready() -> void:
 		add_child(tree)
 		colliders.append([tree.position.x, tree.position.z, 0.8])
 
+	# Ferne Hügelinseln
+	var hill_mat := StandardMaterial3D.new()
+	hill_mat.albedo_color = Color("5cc93c")
+	hill_mat.roughness = 0.45
+	hill_mat.clearcoat_enabled = true
+	for i in 9:
+		var a := float(i) / 9.0 * TAU + 0.3
+		var r := 170.0 + (i % 3) * 40
+		var s := 18.0 + (i * 7) % 20
+		var hill := MeshInstance3D.new()
+		var sm := SphereMesh.new()
+		sm.radius = s
+		sm.height = s * 2
+		hill.mesh = sm
+		hill.material_override = hill_mat
+		hill.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		hill.position = Vector3(cos(a) * r, -s * 0.45, sin(a) * r)
+		hill.scale = Vector3(1, 0.8, 1)
+		add_child(hill)
+
+	# Aufsteigende Seifenblasen
+	var bm := SphereMesh.new()
+	bm.radius = 1.0
+	bm.height = 2.0
+	bm.radial_segments = 24
+	bm.rings = 12
+	var bmat := StandardMaterial3D.new()
+	bmat.albedo_color = Color(1, 1, 1, 0.12)
+	bmat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	bmat.roughness = 0.0
+	bmat.metallic_specular = 1.0
+	bmat.rim_enabled = true
+	bmat.rim = 1.0
+	bmat.rim_tint = 0.0
+	bmat.emission_enabled = true
+	bmat.emission = Color("bfe9ff")
+	bmat.emission_energy_multiplier = 0.15
+	bm.material = bmat
+	bubbles.transform_format = MultiMesh.TRANSFORM_3D
+	bubbles.mesh = bm
+	bubbles.instance_count = 40
+	bubbles.custom_aabb = AABB(Vector3(-80, -5, -80), Vector3(160, 60, 160))
+	var bmi := MultiMeshInstance3D.new()
+	bmi.multimesh = bubbles
+	bmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	add_child(bmi)
+	for i in 40:
+		bubble_data.append(_new_bubble(true))
+
 	for i in 14:
 		var cloud := model("cloud_a" if i % 2 == 0 else "cloud_b")
 		var a := float(i) / 14.0 * TAU
@@ -112,8 +163,23 @@ func _ready() -> void:
 		add_child(cloud)
 		clouds.append(cloud)
 
+func _new_bubble(any_height: bool) -> Array:
+	var a := randf() * TAU
+	var r := 15.0 + randf() * 60.0
+	return [Vector3(cos(a) * r, randf() * 40.0 if any_height else -1.0, sin(a) * r),
+		0.2 + randf() * 0.7, 0.6 + randf() * 1.2, randf() * 10.0]
+
 func _process(delta: float) -> void:
 	_t += delta
+	for i in bubble_data.size():
+		var b: Array = bubble_data[i]
+		b[0].y += b[2] * delta
+		b[0].x += sin(_t + b[3]) * delta * 0.4
+		if b[0].y > 45:
+			b = _new_bubble(false)
+			bubble_data[i] = b
+		var wobble := 1.0 + sin(_t * 3.0 + b[3]) * 0.04
+		bubbles.set_instance_transform(i, Transform3D(Basis().scaled(Vector3(b[1] * wobble, b[1] / wobble, b[1] * wobble)), b[0]))
 	water.position.y = -1.1 + sin(_t * 0.6) * 0.08
 	if recycler_ring:
 		recycler_ring.rotation.y = _t * 1.5

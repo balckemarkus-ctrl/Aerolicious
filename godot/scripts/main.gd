@@ -15,6 +15,7 @@ var shards: Shards
 var fx: Effects
 var player: Player
 var hud: Hud
+var sfx: Sfx
 var touch: TouchControls
 var gun: Node3D
 var muzzle: Node3D
@@ -56,6 +57,8 @@ func _ready() -> void:
 	add_child(fx)
 	player = Player.new()
 	add_child(player)
+	sfx = Sfx.new()
+	add_child(sfx)
 
 	gun = World.model("blaster")
 	gun.scale = Vector3.ONE * 0.42
@@ -85,6 +88,7 @@ func _ready() -> void:
 		touch.player = player
 		touch.pause_pressed.connect(pause)
 		touch.action_pressed.connect(interact)
+		touch.mute_pressed.connect(toggle_mute)
 		hud.root.add_child(touch)
 		hud.root.move_child(touch, 0) # unter allen Anzeigen und Menüs
 		for i in hud.ammo_slots.size():
@@ -92,6 +96,8 @@ func _ready() -> void:
 
 	var had_save := false if autotest else load_game()
 	set_ammo(ammo if unlocked(ammo) else 0)
+	if touch:
+		touch.set_muted(sfx.muted)
 	_sync_drones()
 	hud.update_stats(chunk, credits, inv, S.bag, S.auto_recycle)
 	hud.show_menu("Weiter spielen" if had_save else "Spielen", had_save)
@@ -100,6 +106,8 @@ func _ready() -> void:
 			hud.toast("Tipp: Sammle Scherben und bring sie zum grünen Recycler."))
 	if autotest:
 		_start_autotest()
+	else:
+		_prewarm()
 
 func _collect_tank_materials(n: Node) -> void:
 	# Tank und Düse des Blasters nehmen die Farbe der Munition an
@@ -112,6 +120,31 @@ func _collect_tank_materials(n: Node) -> void:
 				tank_mats.append(copy)
 	for c in n.get_children():
 		_collect_tank_materials(c)
+
+# Shader vorwärmen: Jeder Effekt wird einmal kurz hinter dem Startmenü gezeichnet. Sonst übersetzt
+# die Grafikkarte ihn erst beim ersten Schuss, und das Spiel stockt einen Moment.
+func _prewarm() -> void:
+	await get_tree().process_frame
+	await get_tree().process_frame
+	var cam := player.cam.global_transform
+	var p := cam * Vector3(0, 0, -4)
+	var side := cam.basis.x * 0.5
+	for i in Config.AMMO.size():
+		fx.projectile(p + side * (i - 1.5), p + side * (i - 1.5) - cam.basis.z * 0.1, Config.AMMO[i].color, 1.0, func(_x): pass)
+	fx.burst(p, Color.WHITE, 6, 1.0)
+	fx.ring(p, Config.AMMO[1].color, 0.6)
+	fx.set_beam(p - side, p + side, Config.AMMO[2].color)
+	fx.laser(p + Vector3.UP * 0.3, p - Vector3.UP * 0.3, Color("7ff0ff"))
+	shards.spawn(p, 0, 1)
+	var drone := World.model("drone")
+	drone.position = p + Vector3.UP * 0.5
+	drone.scale = Vector3.ONE * 0.3
+	add_child(drone)
+	for i in 6:
+		await get_tree().process_frame
+	fx.hide_beam()
+	shards.clear()
+	drone.queue_free()
 
 # ---------- Spielstand ----------
 
@@ -136,7 +169,7 @@ func save_game() -> void:
 		return
 	f.store_string(JSON.stringify({
 		"v": 1, "chunk": chunk.serialize(), "credits": credits, "earned": earned, "inv": inv, "up": up,
-		"ammo": ammo, "play_time": play_time, "won": won, "player": player.serialize(),
+		"ammo": ammo, "play_time": play_time, "won": won, "player": player.serialize(), "muted": sfx.muted,
 	}))
 
 func load_game() -> bool:
@@ -156,6 +189,7 @@ func load_game() -> bool:
 	play_time = d.play_time
 	won = d.won
 	player.restore(d.player)
+	sfx.set_muted(d.get("muted", false))
 	S = Config.stats(up)
 	return true
 
@@ -166,6 +200,7 @@ func reset_game() -> void:
 # ---------- Start / Pause ----------
 
 func resume() -> void:
+	sfx.start_ambient()
 	playing = true
 	started = true
 	hud.menu.visible = false
@@ -196,6 +231,8 @@ func _unhandled_input(e: InputEvent) -> void:
 				else: pause()
 			KEY_E:
 				interact()
+			KEY_M:
+				toggle_mute()
 			KEY_1, KEY_2, KEY_3, KEY_4:
 				set_ammo(e.physical_keycode - KEY_1)
 	elif e is InputEventMouseButton and e.pressed and not touch_mode:
@@ -240,13 +277,22 @@ func set_ammo(i: int) -> void:
 		m.emission = c
 	hud.render_ammo(ammo, unlocked_list())
 
+func toggle_mute() -> void:
+	var m := sfx.toggle_mute()
+	if touch:
+		touch.set_muted(m)
+	hud.toast("🔇 Ton aus" if m else "🔊 Ton an")
+	save_game()
+
 func hit_block(b: int, dmg: float) -> void:
-	chunk.damage(b, dmg)
+	if not chunk.damage(b, dmg):
+		sfx.hit()
 
 func _on_block_broken(b: int, t: int) -> void:
 	var p := chunk.center(b)
 	shards.spawn(p, t, Config.TIERS[t].shards)
 	fx.burst(p, Config.TIERS[t].color, 5, 4.0)
+	sfx.break_block(t)
 
 func _aim_distance(origin: Vector3, dir: Vector3, hits: Array) -> float:
 	var dist: float = hits[0][1] if not hits.is_empty() else 90.0
@@ -281,6 +327,7 @@ func _update_weapon(dt: float) -> void:
 				hit_block(hits[i][0], S.damage * (0.45 if i == 0 else 0.3))
 			if not hits.is_empty():
 				fx.burst(end, a.color, 2, 3.0)
+			sfx.beam_hum()
 		return
 	fx.hide_beam()
 	if not firing or cooldown > 0:
@@ -293,6 +340,7 @@ func _update_weapon(dt: float) -> void:
 	var target := origin + dir * _aim_distance(origin, dir, aim)
 	var size := 3.0 if a.id == "nova" else 1.6 if a.id == "fizz" else 1.0
 	gun_kick = 1.6 if a.id == "nova" else 1.0
+	sfx.shoot(a.id)
 	fx.projectile(mz, target, a.color, size, _on_impact.bind(a.id, dir, a.color))
 
 func _on_impact(p: Vector3, id: String, dir: Vector3, color: Color) -> void:
@@ -312,6 +360,7 @@ func _on_impact(p: Vector3, id: String, dir: Vector3, color: Color) -> void:
 			chunk.damage_sphere(c, 4.2, S.damage * 5)
 			fx.ring(c, color, 5.0)
 			fx.burst(c, color, 24, 8.0)
+			sfx.break_block(4)
 
 # ---------- Drohnen ----------
 
@@ -361,11 +410,13 @@ func collect(tier: int) -> void:
 		earned += v
 	else:
 		inv[tier] += 1
+	sfx.collect()
 
 func recycle() -> void:
 	var count := bag_count()
 	if count == 0:
 		hud.toast("Keine Scherben im Rucksack.")
+		sfx.play("error")
 		return
 	var v := 0.0
 	for t in inv.size():
@@ -374,6 +425,7 @@ func recycle() -> void:
 	credits += v
 	earned += v
 	inv = [0, 0, 0, 0, 0]
+	sfx.play("recycle")
 	fx.burst(World.RECYCLER_POS + Vector3(0, 3, 0), Color("8bffb0"), 30, 6.0)
 	fx.ring(World.RECYCLER_POS + Vector3(0, 2, 0), Color("8bffb0"), 3.0)
 	hud.toast("♻️ %d Scherben recycelt: +%s Credits" % [count, Hud.fmt(v)])
@@ -387,10 +439,12 @@ func buy(id: String) -> void:
 	var lvl: int = up.get(id, 0)
 	var cost := Config.upgrade_cost(u, lvl)
 	if lvl >= u.max or credits < cost:
+		sfx.play("error")
 		return
 	credits -= cost
 	up[id] = lvl + 1
 	S = Config.stats(up)
+	sfx.play("buy")
 	_sync_drones()
 	for i in Config.AMMO.size():
 		if Config.AMMO[i].unlock == id:
@@ -448,6 +502,7 @@ func _check_win() -> void:
 	if won or chunk.alive_count > 0:
 		return
 	won = true
+	sfx.play("win")
 	save_game()
 	await get_tree().create_timer(1.5).timeout
 	win_open = true

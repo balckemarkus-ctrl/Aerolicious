@@ -189,7 +189,7 @@ func _build_hud() -> void:
 	for t in Config.TIERS.size():
 		var l := label("", 16)
 		tier_labels.append(l)
-		var dotl := label("●", 18, Config.TIERS[t].color)
+		var dotl := Ball.new(Config.TIERS[t].color, 15)
 		var h := HBoxContainer.new()
 		h.add_theme_constant_override("separation", 3)
 		h.add_child(dotl)
@@ -207,8 +207,12 @@ func _build_hud() -> void:
 	var wv := VBoxContainer.new()
 	wv.add_theme_constant_override("separation", 2)
 	wallet.add_child(wv)
+	var cr := HBoxContainer.new()
+	cr.add_theme_constant_override("separation", 8)
+	cr.add_child(Ball.new(Color("3cc63a"), 26))
 	credits_label = label("", 30, Color("0a5a2a"))
-	wv.add_child(credits_label)
+	cr.add_child(credits_label)
+	wv.add_child(cr)
 	var br := HBoxContainer.new()
 	br.add_child(label("RUCKSACK", 15))
 	var sp2 := Control.new()
@@ -242,8 +246,8 @@ func _build_hud() -> void:
 		var num := label(str(i + 1), 13)
 		num.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		v.add_child(num)
-		var ball := label("●", 34, Config.AMMO[i].color)
-		ball.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		var ball := Ball.new(Config.AMMO[i].color, 34)
+		ball.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 		v.add_child(ball)
 		var nm := label("", 14)
 		nm.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -269,22 +273,22 @@ func _build_hud() -> void:
 	toasts.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	toasts.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
 	toasts.grow_horizontal = Control.GROW_DIRECTION_BEGIN
-	toasts.position = Vector2(-20, 110 if touch_mode else 16)
+	toasts.position = Vector2(-20, 116 if touch_mode else 16)
 	toasts.alignment = BoxContainer.ALIGNMENT_BEGIN
 	toasts.add_theme_constant_override("separation", 8)
 	root.add_child(toasts)
 
 	fps_label = label("", 14)
 	fps_label.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_LEFT)
-	fps_label.position = Vector2(16, -26)
+	fps_label.position = Vector2(16, -26) if touch_mode else Vector2(16, -76)
 	root.add_child(fps_label)
 
 	if not touch_mode:
-		var hint := label("WASD laufen · Maus zielen · Klick schießen · E interagieren · 1–4 Munition", 15)
-		hint.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_RIGHT)
-		hint.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+		var hint := label("WASD laufen · Maus zielen · Klick schießen · E interagieren · 1–4 Munition · M Ton", 15)
+		hint.text = "WASD laufen · Maus zielen · Klick schießen\nE interagieren · 1–4 Munition · M Ton"
+		hint.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_LEFT)
 		hint.grow_vertical = Control.GROW_DIRECTION_BEGIN
-		hint.position += Vector2(-16, -16)
+		hint.position += Vector2(16, -16)
 		root.add_child(hint)
 
 func _build_menu() -> void:
@@ -355,6 +359,7 @@ func _build_shop() -> void:
 	var t := label("Aero-Shop", 38, Color("0b5ea8"))
 	t.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	head.add_child(t)
+	head.add_child(Ball.new(Color("3cc63a"), 28))
 	shop_credits = label("", 30, Color("0a5a2a"))
 	head.add_child(shop_credits)
 	var close := button("Schließen" if touch_mode else "Schließen (E)", 22, false)
@@ -377,7 +382,7 @@ func _build_shop() -> void:
 	shop.visible = false
 
 func render_shop(credits: float, up: Dictionary) -> void:
-	shop_credits.text = "● " + fmt(credits)
+	shop_credits.text = fmt(credits)
 	for c in shop_grid.get_children():
 		c.queue_free()
 	for u in Config.UPGRADES:
@@ -444,7 +449,7 @@ func update_stats(chunk: Chunk, credits: float, inv: Array, bag: int, auto_recyc
 	set_bar(progress_fill, 1.0 - float(left) / Config.TOTAL_BLOCKS)
 	for t in tier_labels.size():
 		tier_labels[t].text = fmt(chunk.tier_alive[t])
-	credits_label.text = "● " + fmt(credits)
+	credits_label.text = fmt(credits)
 	var n := 0
 	var parts := []
 	for t in inv.size():
@@ -511,3 +516,20 @@ class Crosshair extends Control:
 	func _draw() -> void:
 		draw_arc(Vector2.ZERO, 9, 0, TAU, 32, Color(1, 1, 1, 0.95), 2.5, true)
 		draw_circle(Vector2.ZERO, 2, Color.WHITE)
+
+# Glänzende Kugel (Munition, Credits, Block-Stufen) im Frutiger-Aero-Stil
+class Ball extends Control:
+	var color: Color
+	func _init(c: Color, diameter: int) -> void:
+		color = c
+		custom_minimum_size = Vector2(diameter, diameter)
+		mouse_filter = Control.MOUSE_FILTER_IGNORE
+	func _draw() -> void:
+		var r := minf(size.x, size.y) / 2.0
+		var c := size / 2.0
+		draw_circle(c + Vector2(0, r * 0.08), r, Color(0, 0.2, 0.4, 0.25))
+		draw_circle(c, r, color.darkened(0.22))
+		draw_circle(c - Vector2(0, r * 0.07), r * 0.86, color)
+		draw_circle(c + Vector2(0, r * 0.3), r * 0.45, color.lightened(0.15))
+		draw_circle(c + Vector2(-r * 0.28, -r * 0.36), r * 0.3, Color(1, 1, 1, 0.8))
+		draw_arc(c, r - 0.5, 0, TAU, 32, Color(1, 1, 1, 0.7), 1.2, true)

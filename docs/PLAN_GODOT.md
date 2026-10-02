@@ -54,7 +54,7 @@ Jedes Modell ist ein Skript in `blender/`, `blender/build_all.sh` exportiert all
 - Scherben mit Magnet, Rucksack, Recycler, Shop mit allen Upgrades, Drohnen, Fern-Recycling
 - Balancing aus `src/config.js` übernehmen, Speichern unter `user://`
 
-### Phase 4 – Oberfläche, Effekte, Ton
+### Phase 4 – Oberfläche, Effekte, Ton ✅ (erste Fassung; Sounds: `tools/sounds/make_sounds.py`)
 - HUD und Menüs im Glas-Stil (Godot-Theme), Partikel, Explosionsringe, Strahl
 - Sounds (aus der WebAudio-Synthese als Samples nachgebaut), Ambient-Musik
 
