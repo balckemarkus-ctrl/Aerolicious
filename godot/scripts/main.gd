@@ -7,6 +7,9 @@ const SETTINGS_PATH := "user://settings.json"
 const SLOTS := 3
 
 var slot := 1
+# Einstellungen für alle Spielstände: Zielempfindlichkeit, Grafik (0 niedrig, 1 mittel, 2 hoch), Lautstärke, Vibration
+var settings := { "sens": 1.0, "quality": 1, "volume": 0.8, "vibration": true }
+var _last_vibe := 0
 var save_path := "user://save_1.json"
 
 var args := OS.get_cmdline_user_args()
@@ -72,6 +75,9 @@ func _init() -> void:
 		var st = JSON.parse_string(FileAccess.get_file_as_string(SETTINGS_PATH))
 		if typeof(st) == TYPE_DICTIONARY:
 			slot = clampi(int(st.get("slot", 1)), 1, SLOTS)
+			for k in settings:
+				if st.has(k):
+					settings[k] = st[k]
 	save_path = "user://save_%d.json" % slot
 	# Blockfarben vor dem Bau des Bauwerks setzen
 	if FileAccess.file_exists(save_path):
@@ -89,6 +95,39 @@ static func slot_summary(n: int) -> String:
 	var lv := clampi(int(d.get("level", 0)), 0, Config.LEVELS.size() - 1)
 	return "%s · %s Perlen · %d Kerne" % [Config.LEVELS[lv].name, Hud.fmt(float(d.get("credits", 0))), int(d.get("cores", 0))]
 
+func save_settings() -> void:
+	var d := settings.duplicate()
+	d["slot"] = slot
+	var f := FileAccess.open(SETTINGS_PATH, FileAccess.WRITE)
+	f.store_string(JSON.stringify(d))
+	f.close()
+
+func apply_settings() -> void:
+	player.mouse_sens = 0.0022 * float(settings.sens)
+	if touch:
+		touch.look_speed = 0.005 * float(settings.sens)
+	var q := int(settings.quality)
+	if touch_mode:
+		get_viewport().scaling_3d_scale = [0.6, 0.8, 1.0][q]
+	RenderingServer.directional_shadow_atlas_set_size([1024, 2048, 4096][q], true)
+	world.sun.shadow_enabled = q > 0
+	AudioServer.set_bus_volume_db(0, linear_to_db(maxf(0.001, float(settings.volume))))
+
+func change_setting(key: String, value) -> void:
+	settings[key] = value
+	apply_settings()
+	save_settings()
+
+# Kurzes Vibrieren (Handy), höchstens alle 60 ms
+func vibrate(ms: int) -> void:
+	if not settings.vibration or not touch_mode:
+		return
+	var now := Time.get_ticks_msec()
+	if now - _last_vibe < 60:
+		return
+	_last_vibe = now
+	Input.vibrate_handheld(ms)
+
 func delete_slot(n: int) -> void:
 	DirAccess.remove_absolute(ProjectSettings.globalize_path("user://save_%d.json" % n))
 	if n == slot:
@@ -102,9 +141,8 @@ func select_slot(n: int) -> void:
 	if n == slot:
 		return
 	save_game()
-	var f := FileAccess.open(SETTINGS_PATH, FileAccess.WRITE)
-	f.store_string(JSON.stringify({ "slot": n }))
-	f.close()
+	slot = n
+	save_settings()
 	get_tree().reload_current_scene()
 
 func _ready() -> void:
@@ -144,10 +182,6 @@ func _ready() -> void:
 	World.set_shadows(gun, false)
 	_collect_tank_materials(gun)
 
-	if touch_mode:
-		# Handy: etwas niedrigere Auflösung und Schattenqualität für flüssiges Spiel
-		get_viewport().scaling_3d_scale = 0.8
-		RenderingServer.directional_shadow_atlas_set_size(2048, true)
 
 	hud = Hud.new(touch_mode)
 	add_child(hud)
@@ -159,6 +193,9 @@ func _ready() -> void:
 	hud.level_selected.connect(select_level)
 	hud.slot_selected.connect(select_slot)
 	hud.slot_deleted.connect(delete_slot)
+	hud.settings_pressed.connect(func(): hud.show_settings(settings))
+	hud.setting_changed.connect(change_setting)
+	apply_settings()
 	hud.skins_pressed.connect(_show_skins)
 	hud.skin_selected.connect(select_skin)
 	hud.set_slots(slot, range(1, SLOTS + 1).map(slot_summary))
@@ -183,6 +220,7 @@ func _ready() -> void:
 	var had_save := false if autotest else load_game()
 	S = Config.stats(up, cores, achieved.size())
 	apply_gun_skin()
+	apply_settings() # erst jetzt existiert auch die Touch-Steuerung
 	set_ammo(ammo if unlocked(ammo) else 0)
 	if touch:
 		touch.set_muted(sfx.muted)
@@ -207,6 +245,8 @@ func _ready() -> void:
 		credits = 50000
 		hud.menu.visible = false
 		open_shop()
+	if "--showsettings" in args: # Vorschau der Einstellungen (Entwicklung)
+		hud.show_settings(settings)
 	if "--showskins" in args: # Vorschau der Skins (Entwicklung)
 		_show_skins()
 	if "--showach" in args: # Vorschau der Erfolge (Entwicklung)
@@ -487,6 +527,7 @@ func _on_block_broken(b: int, t: int) -> void:
 	if chunk.kind[b] == 2: count("crystal")
 	if chunk.striped(b) > 0.5: count("armor")
 	sfx.break_block(t)
+	vibrate(12)
 	if chunk.gold[b]:
 		var bonus: float = tier_value(t) * 25.0 * S.gold_mult
 		earn(bonus)
@@ -599,6 +640,7 @@ func _on_impact(p: Vector3, id: String, dir: Vector3, color: Color) -> void:
 		"nova":
 			var c := p + dir * 0.8
 			chunk.damage_sphere(c, 4.2, S.damage * 5 * S.nova_power)
+			vibrate(70)
 			numbers.show_number(c, S.damage * 50.0 * S.nova_power, true)
 			fx.ring(c, color, 5.0)
 			fx.burst(c, color, 24, 8.0)
@@ -788,6 +830,7 @@ func _update_explosions(dt: float) -> void:
 		# Stark genug, um die äußeren Stufen dieses Bauwerks zu sprengen
 		var dmg: float = Config.TIERS[1].hp * Config.LEVELS[level].hp * 1.5
 		fx.ring(p, Color("ff8a2a"), 3.2)
+		vibrate(45)
 		fx.burst(p, Color("ffb020"), 26, 8.0)
 		sfx.play("shoot_nova", 1.3)
 		numbers.show_number(p, dmg * 10.0, true)

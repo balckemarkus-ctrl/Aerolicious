@@ -16,6 +16,8 @@ signal level_selected(index: int)
 signal slot_selected(n: int)
 signal slot_deleted(n: int)
 signal skins_pressed
+signal settings_pressed
+signal setting_changed(key: String, value: Variant)
 signal skin_selected(kind: String, index: int)
 
 const INK := Color("e6f4ff")        # Schrift: helles Blau-Weiß
@@ -84,6 +86,8 @@ var level_buttons: Array[Button] = []
 var slot_buttons: Array[Button] = []
 var slot_delete_buttons: Array[Button] = []
 var skin_panel: Control
+var settings_panel: Control
+var settings_box: VBoxContainer
 var skin_box: VBoxContainer
 var preview_gun: Node3D
 var preview_blocks: MultiMesh
@@ -238,6 +242,7 @@ func _init(touch: bool) -> void:
 	_build_win()
 	_build_achievements()
 	_build_skins()
+	_build_settings()
 
 func _build_hud() -> void:
 	var cross := Crosshair.new()
@@ -419,6 +424,10 @@ func _build_menu() -> void:
 	skins_btn.custom_minimum_size = Vector2(0, 54)
 	skins_btn.pressed.connect(func(): skins_pressed.emit())
 	left.add_child(skins_btn)
+	var set_btn := button("Einstellungen", 20, false)
+	set_btn.custom_minimum_size = Vector2(0, 54)
+	set_btn.pressed.connect(func(): settings_pressed.emit())
+	left.add_child(set_btn)
 	prestige_btn = button("Reaktor-Neustart", 18, false)
 	prestige_btn.custom_minimum_size = Vector2(0, 54)
 	prestige_btn.pressed.connect(_on_prestige)
@@ -557,7 +566,7 @@ func _on_prestige() -> void:
 # Spielanzeigen (alles außer den Menüs) ein- oder ausblenden
 func set_hud_visible(v: bool) -> void:
 	for c in root.get_children():
-		if c != menu and c != shop and c != win and c != ach_panel and c != skin_panel:
+		if c != menu and c != shop and c != win and c != ach_panel and c != skin_panel and c != settings_panel:
 			c.visible = v
 
 func show_menu(play_text: String, can_reset: bool) -> void:
@@ -807,6 +816,85 @@ func preview_skin(kind: String, i: int) -> void:
 func _process(delta: float) -> void:
 	if preview_gun and skin_panel.visible:
 		preview_gun.rotation.y += delta * 0.8
+
+func _build_settings() -> void:
+	settings_panel = _overlay()
+	var box := _centered_panel(settings_panel, 0.94)
+	settings_box = VBoxContainer.new()
+	settings_box.add_theme_constant_override("separation", 12)
+	settings_box.custom_minimum_size = Vector2(620, 0)
+	box.add_child(settings_box)
+	var close := button("Schließen", 20, false)
+	close.custom_minimum_size = Vector2(0, 54)
+	close.pressed.connect(func(): settings_panel.visible = false)
+	box.add_child(close)
+	settings_panel.visible = false
+
+func _choice_row(key: String, options: Array, current: int) -> HBoxContainer:
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 8)
+	for i in options.size():
+		var b := button(options[i], 16, i == current)
+		b.custom_minimum_size = Vector2(140, 50)
+		b.pressed.connect(func():
+			setting_changed.emit(key, i if key != "vibration" else i == 1)
+			_refresh_choices(row, i))
+		row.add_child(b)
+	return row
+
+func _refresh_choices(row: HBoxContainer, chosen: int) -> void:
+	for i in row.get_child_count():
+		var b := row.get_child(i) as Button
+		var on := i == chosen
+		for st in ["normal", "hover", "pressed"]:
+			var sb := style(6, 1.0, NEON if on else Color("13202f"))
+			b.add_theme_stylebox_override(st, sb)
+		b.add_theme_color_override("font_color", Color("06121f") if on else INK)
+
+func _slider_row(key: String, value: float, lo: float, hi: float, fmt_pct: bool) -> HBoxContainer:
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 14)
+	var sl := HSlider.new()
+	sl.min_value = lo
+	sl.max_value = hi
+	sl.step = 0.05
+	sl.value = value
+	sl.custom_minimum_size = Vector2(440, 40)
+	sl.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	var track := StyleBoxFlat.new()
+	track.bg_color = Color(1, 1, 1, 0.12)
+	track.set_corner_radius_all(3)
+	track.content_margin_top = 3
+	track.content_margin_bottom = 3
+	var fill := track.duplicate() as StyleBoxFlat
+	fill.bg_color = NEON
+	sl.add_theme_stylebox_override("slider", track)
+	sl.add_theme_stylebox_override("grabber_area", fill)
+	sl.add_theme_stylebox_override("grabber_area_highlight", fill)
+	var val := label("", 18, INK)
+	var show := func(v: float): val.text = ("%d %%" % roundi(v * 100)) if fmt_pct else ("%.2f×" % v).replace(".", ",")
+	show.call(value)
+	sl.value_changed.connect(func(v: float):
+		show.call(v)
+		setting_changed.emit(key, v))
+	row.add_child(sl)
+	row.add_child(val)
+	return row
+
+func show_settings(st: Dictionary) -> void:
+	for c in settings_box.get_children():
+		c.queue_free()
+	settings_box.add_child(head("EINSTELLUNGEN", 30, NEON))
+	settings_box.add_child(caption("Zielempfindlichkeit"))
+	settings_box.add_child(_slider_row("sens", float(st.sens), 0.4, 2.0, false))
+	settings_box.add_child(caption("Lautstärke"))
+	settings_box.add_child(_slider_row("volume", float(st.volume), 0.0, 1.0, true))
+	settings_box.add_child(caption("Grafik"))
+	settings_box.add_child(_choice_row("quality", ["Niedrig", "Mittel", "Hoch"], int(st.quality)))
+	if touch_mode:
+		settings_box.add_child(caption("Vibration"))
+		settings_box.add_child(_choice_row("vibration", ["Aus", "An"], 1 if st.vibration else 0))
+	settings_panel.visible = true
 
 func show_skins(gun: int, pal: int, gun_open: Array, pal_open: Array) -> void:
 	preview_skin("gun", gun)

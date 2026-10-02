@@ -10,6 +10,7 @@ const SHOP_POS := Vector3(8, 0, 30)
 
 var colliders: Array = [] # [x, z, radius] für runde Hindernisse
 var spinners: Array = []  # [Node3D, Achse, Tempo]
+var sun: DirectionalLight3D
 var _t := 0.0
 
 static func model(file: String) -> Node3D:
@@ -82,7 +83,7 @@ func _ready() -> void:
 	add_child(we)
 
 	# Kühles Licht aus den Deckenfenstern
-	var sun := DirectionalLight3D.new()
+	sun = DirectionalLight3D.new()
 	sun.light_color = Color("dceaff")
 	sun.light_energy = 1.25
 	sun.rotation_degrees = Vector3(-68, -30, 0)

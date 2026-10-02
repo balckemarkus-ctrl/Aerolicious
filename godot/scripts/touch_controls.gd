@@ -7,7 +7,7 @@ signal pause_pressed
 signal action_pressed
 signal mute_pressed
 
-const LOOK_SPEED := 0.005  # Radiant pro Bildpunkt Wischweg
+var look_speed := 0.005  # Radiant pro Bildpunkt Wischweg (Einstellung)
 const STICK_RADIUS := 70.0
 
 var player: Player
@@ -141,7 +141,7 @@ func _input(e: InputEvent) -> void:
 			player.stick = Vector2(d.x, -d.y) / STICK_RADIUS
 			queue_redraw()
 		elif lookers.has(e.index):
-			player.look(e.relative.x * LOOK_SPEED, e.relative.y * LOOK_SPEED)
+			player.look(e.relative.x * look_speed, e.relative.y * look_speed)
 		get_viewport().set_input_as_handled()
 
 func _release(index: int, p: Vector2) -> void:

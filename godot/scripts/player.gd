@@ -6,7 +6,6 @@ extends Node3D
 const HALF := 0.3
 const HEIGHT := 1.4
 const EYE := 1.25 # etwas kleiner als früher: die Blöcke wirken größer, wie im Vorbild
-const MOUSE_SENS := 0.0022
 
 var cam: Camera3D
 var pos := Vector3(0, 0, 40)
@@ -14,6 +13,7 @@ var vel := Vector3.ZERO
 var yaw := 0.0
 var pitch := -0.08
 var on_ground := false
+var mouse_sens := 0.0022
 var touch_active := false   # Touch-Modus: Steuerung aktiv ohne Mausfang
 var stick := Vector2.ZERO   # x = seitwärts, y = vorwärts, je -1..1
 var jump_held := false
@@ -35,7 +35,7 @@ func look(d_yaw: float, d_pitch: float) -> void:
 
 func _unhandled_input(e: InputEvent) -> void:
 	if e is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
-		look(e.relative.x * MOUSE_SENS, e.relative.y * MOUSE_SENS)
+		look(e.relative.x * mouse_sens, e.relative.y * mouse_sens)
 
 func _key(k: Key) -> bool:
 	return Input.is_physical_key_pressed(k)
