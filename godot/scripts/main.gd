@@ -1,6 +1,6 @@
 extends Node3D
 # Spielschleife (wie src/main.js): Welt, Brocken, Spieler, Blaster mit vier Munitionsarten,
-# Splitter, Blasenbrunnen, Shop, Drohnen, Speichern, Start/Pause/Sieg, Desktop- und Touch-Steuerung.
+# Splitter, Konverter, Shop, Drohnen, Speichern, Start/Pause/Sieg, Desktop- und Touch-Steuerung.
 # Startoptionen (nach "--"): --touch erzwingt Touch-Modus, --autotest spielt kurz selbst und beendet.
 
 const SAVE_PATH := "user://save.json"
@@ -35,7 +35,11 @@ var ammo := 0
 var play_time := 0.0
 var won := false
 var level := 0
-var S := Config.stats({})
+var cores := 0
+var run_earned := 0.0   # seit dem letzten Reaktor-Neustart verdient (für Kerne)
+var shots := 0
+var explosions: Array = [] # [Position, Restzeit]: Explosivblöcke zünden kurz versetzt (Kettenreaktion)
+var S := Config.stats({}, 0)
 
 var playing := false
 var shop_open := false
@@ -71,7 +75,6 @@ func _ready() -> void:
 	add_child(fx)
 	player = Player.new()
 	add_child(player)
-	world.grass.target = player.cam
 	sfx = Sfx.new()
 	add_child(sfx)
 
@@ -93,6 +96,7 @@ func _ready() -> void:
 	hud.reset_pressed.connect(reset_game)
 	hud.shop_closed.connect(close_shop)
 	hud.buy_pressed.connect(buy)
+	hud.prestige_pressed.connect(prestige)
 	hud.continue_pressed.connect(func():
 		win_open = false
 		hud.win.visible = false
@@ -117,10 +121,11 @@ func _ready() -> void:
 	_sync_drones()
 	hud.set_level(level, Config.LEVELS.size(), Config.LEVELS[level].name)
 	hud.update_stats(chunk, credits, inv, S.bag, S.auto_recycle)
+	hud.set_prestige(cores, Config.prestige_cores(run_earned))
 	hud.show_menu("Weiter spielen" if had_save else "Spielen", had_save)
 	if not had_save:
 		get_tree().create_timer(2.5).timeout.connect(func():
-			hud.toast("Tipp: Sammle Splitter und wirf sie in den Blasenbrunnen."))
+			hud.toast("Tipp: Sammle Splitter und bring sie zum Konverter (links)."))
 	if autotest:
 		_start_autotest()
 	else:
@@ -198,7 +203,7 @@ func save_game() -> void:
 	if f == null:
 		return
 	f.store_string(JSON.stringify({
-		"v": 1, "level": level, "chunk": chunk.serialize(), "credits": credits, "earned": earned, "inv": inv, "up": up,
+		"v": 1, "level": level, "cores": cores, "run_earned": run_earned, "shots": shots, "chunk": chunk.serialize(), "credits": credits, "earned": earned, "inv": inv, "up": up,
 		"ammo": ammo, "play_time": play_time, "won": won, "player": player.serialize(), "muted": sfx.muted,
 	}))
 
@@ -215,12 +220,15 @@ func load_game() -> bool:
 	for k in d.up:
 		up[k] = int(d.up[k])
 	ammo = int(d.ammo)
+	cores = int(d.get("cores", 0))
+	run_earned = float(d.get("run_earned", earned))
+	shots = int(d.get("shots", 0))
 	play_time = d.play_time
 	won = d.won
 	if d.get("player") != null:
 		player.restore(d.player)
 	sfx.set_muted(d.get("muted", false))
-	S = Config.stats(up)
+	S = Config.stats(up, cores)
 	return true
 
 func next_level() -> void:
@@ -229,7 +237,7 @@ func next_level() -> void:
 	won = false
 	var f := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
 	f.store_string(JSON.stringify({
-		"v": 1, "level": level, "chunk": "", "credits": credits, "earned": earned, "inv": inv, "up": up,
+		"v": 1, "level": level, "cores": cores, "run_earned": run_earned, "shots": shots, "chunk": "", "credits": credits, "earned": earned, "inv": inv, "up": up,
 		"ammo": ammo, "play_time": play_time, "won": false, "player": null, "muted": sfx.muted,
 	}))
 	f.close()
@@ -262,6 +270,7 @@ func pause() -> void:
 		return
 	playing = false
 	_release_controls()
+	hud.set_prestige(cores, Config.prestige_cores(run_earned))
 	hud.show_menu("Weiter", true)
 	save_game()
 
@@ -327,8 +336,13 @@ func toggle_mute() -> void:
 	save_game()
 
 func hit_block(b: int, dmg: float) -> void:
-	dmg *= randf_range(0.85, 1.2) # etwas Streuung, wie im Vorbild
-	numbers.show_number(chunk.center(b) - last_dir * 0.6, dmg * 10.0)
+	dmg *= randf_range(0.85, 1.2) # etwas Streuung
+	if chunk.striped(b) > 0.5:
+		dmg *= S.pierce
+	var crit: bool = randf() < S.crit_chance
+	if crit:
+		dmg *= S.crit_mult
+	numbers.show_number(chunk.center(b) - last_dir * 0.6, dmg * 10.0, crit)
 	if not chunk.damage(b, dmg):
 		sfx.hit()
 
@@ -336,9 +350,8 @@ func _on_block_broken(b: int, t: int) -> void:
 	var p := chunk.center(b)
 	sfx.break_block(t)
 	if chunk.gold[b]:
-		var bonus: float = Config.TIERS[t].value * 25.0 * S.recycle_mult
-		credits += bonus
-		earned += bonus
+		var bonus: float = tier_value(t) * 25.0 * S.gold_mult
+		earn(bonus)
 		fx.ring(p, Color("ffcf3a"), 3.0)
 		fx.burst(p, Color("ffcf3a"), 30, 7.0)
 		hud.toast("✨ Goldblock! +%s Perlen" % Hud.fmt(bonus))
@@ -349,8 +362,12 @@ func _on_block_broken(b: int, t: int) -> void:
 		# Der Block fällt erst als Würfel herunter und zerplatzt dann
 		var c: Color = Config.TIERS[t].color
 		debris.spawn(p, last_dir * 0.6, t, Color("ffcf3a") if chunk.gold[b] else c, chunk.striped(b), chunk.gold[b])
-	if chunk.striped(b) > 0.5:
-		shards.spawn(p, t, Config.TIERS[t].shards) # Panzerblöcke geben doppelt Splitter
+	if chunk.kind[b] == 1:
+		explosions.append([p, 0.12])
+	if chunk.kind[b] == 2:
+		shards.spawn(p, t, Config.TIERS[t].shards * 2) # Kristallblock: dreifache Splitter
+	if chunk.striped(b) > 0.5 or randf() < S.multi:
+		shards.spawn(p, t, Config.TIERS[t].shards) # Panzerblöcke und Doppelsplitter
 
 func _on_debris_popped(p: Vector3, t: int) -> void:
 	shards.spawn(p, t, Config.TIERS[t].shards)
@@ -370,16 +387,16 @@ func _update_weapon(dt: float) -> void:
 	var origin := player.cam.global_position
 	var mz := muzzle.global_position
 	var aim := chunk.raycast(origin, dir, 150, 1)
-	# Touch: automatisch feuern, solange das Fadenkreuz auf einem Block liegt
-	var firing := playing and not shop_open and player.locked and (
-		(touch_mode and not aim.is_empty())
-		or (not touch_mode and Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT)))
+	# Touch: feuern, solange der rechte Daumen zielt. Auto-Zielsystem (Upgrade): von selbst auf Blöcke.
+	var auto: bool = S.auto_fire and not aim.is_empty()
+	var manual := (touch != null and touch.aiming()) if touch_mode else Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT)
+	var firing := playing and not shop_open and player.locked and (auto or manual)
 
 	if a.id == "beam":
 		if not firing:
 			fx.hide_beam()
 			return
-		var hits := chunk.raycast(origin, dir, 150, 3)
+		var hits := chunk.raycast(origin, dir, 150, 3 + int(S.beam_power))
 		var end := origin + dir * _aim_distance(origin, dir, hits)
 		fx.set_beam(mz, end, a.color)
 		gun_kick = maxf(gun_kick, 0.25)
@@ -387,7 +404,7 @@ func _update_weapon(dt: float) -> void:
 		if beam_tick <= 0:
 			beam_tick = 1.0 / (S.fire_rate * 2.5)
 			for i in hits.size():
-				hit_block(hits[i][0], S.damage * (0.45 if i == 0 else 0.3))
+				hit_block(hits[i][0], S.damage * S.beam_power * (0.45 if i == 0 else 0.3))
 			if not hits.is_empty():
 				fx.burst(end, a.color, 2, 3.0)
 			sfx.beam_hum()
@@ -397,14 +414,15 @@ func _update_weapon(dt: float) -> void:
 		return
 
 	match a.id:
-		"nova": cooldown = 2.2
+		"nova": cooldown = S.nova_cool
 		"fizz": cooldown = 1.0 / (S.fire_rate * 0.45)
 		_: cooldown = 1.0 / S.fire_rate
 	var target := origin + dir * _aim_distance(origin, dir, aim)
 	var size := 3.0 if a.id == "nova" else 1.6 if a.id == "fizz" else 1.0
 	gun_kick = 1.6 if a.id == "nova" else 1.0
 	sfx.shoot(a.id)
-	fx.projectile(mz, target, a.color, size, _on_impact.bind(a.id, dir, a.color))
+	shots += 1
+	fx.projectile(mz, target, a.color, size, _on_impact.bind(a.id, dir, a.color), S.proj_speed)
 
 func _on_impact(p: Vector3, id: String, dir: Vector3, color: Color) -> void:
 	match id:
@@ -415,14 +433,15 @@ func _on_impact(p: Vector3, id: String, dir: Vector3, color: Color) -> void:
 			fx.burst(p, color, 4, 3.0)
 		"fizz":
 			var c := p + dir * 0.4
-			chunk.damage_sphere(c, 1.9, S.damage * 1.2)
-			numbers.show_number(c, S.damage * 12.0)
+			var r := 1.9 * sqrt(S.fizz_power)
+			chunk.damage_sphere(c, r, S.damage * 1.2 * S.fizz_power)
+			numbers.show_number(c, S.damage * 12.0 * S.fizz_power)
 			fx.ring(c, color, 2.2)
 			fx.burst(c, color, 10, 5.0)
 		"nova":
 			var c := p + dir * 0.8
-			chunk.damage_sphere(c, 4.2, S.damage * 5)
-			numbers.show_number(c, S.damage * 50.0)
+			chunk.damage_sphere(c, 4.2, S.damage * 5 * S.nova_power)
+			numbers.show_number(c, S.damage * 50.0 * S.nova_power, true)
 			fx.ring(c, color, 5.0)
 			fx.burst(c, color, 24, 8.0)
 			sfx.break_block(4)
@@ -456,23 +475,30 @@ func _update_drones(t: float, dt: float) -> void:
 		var p := chunk.center(b)
 		d.look_at(p)
 		fx.laser(d.position, p, Color("7ff0ff"))
-		hit_block(b, S.damage * 0.6)
+		hit_block(b, S.drone_damage)
 
 # ---------- Scherben, Recycler, Shop ----------
+
+# Perlen gutschreiben (zählt auch für Kerne beim Reaktor-Neustart)
+func earn(v: float) -> void:
+	credits += v
+	earned += v
+	run_earned += v
+
+func tier_value(t: int) -> float:
+	return Config.TIERS[t].value * Config.LEVELS[level].value * S.value_mult
 
 func can_collect(_tier: int) -> bool:
 	if S.auto_recycle or bag_count() < S.bag:
 		return true
 	if time - last_full_toast > 5.0:
 		last_full_toast = time
-		hud.toast("🎒 Rucksack voll! Ab zum Blasenbrunnen.")
+		hud.toast("🎒 Rucksack voll! Ab zum Konverter.")
 	return false
 
 func collect(tier: int) -> void:
 	if S.auto_recycle:
-		var v: float = Config.TIERS[tier].value * S.recycle_mult
-		credits += v
-		earned += v
+		earn(tier_value(tier))
 	else:
 		inv[tier] += 1
 	sfx.collect()
@@ -485,10 +511,9 @@ func recycle() -> void:
 		return
 	var v := 0.0
 	for t in inv.size():
-		v += inv[t] * Config.TIERS[t].value
-	v = roundf(v * S.recycle_mult)
-	credits += v
-	earned += v
+		v += inv[t] * tier_value(t)
+	v = roundf(v)
+	earn(v)
 	inv = [0, 0, 0, 0, 0]
 	sfx.play("recycle")
 	fx.burst(World.RECYCLER_POS + Vector3(0, 3, 0), Color("8bffb0"), 30, 6.0)
@@ -496,19 +521,19 @@ func recycle() -> void:
 	hud.toast("💧 %d Splitter eingetauscht: +%s Perlen" % [count, Hud.fmt(v)])
 	save_game()
 
-func buy(id: String) -> void:
-	var u: Dictionary = {}
-	for x in Config.UPGRADES:
-		if x.id == id:
-			u = x
+func buy(id: String, amount := 1) -> void:
+	var u := Config.find_upgrade(id)
 	var lvl: int = up.get(id, 0)
-	var cost := Config.upgrade_cost(u, lvl)
-	if lvl >= u.max or credits < cost:
+	if u.has("needs") and up.get(u.needs, 0) == 0:
+		return
+	var n := Config.affordable(u, lvl, credits) if amount <= 0 else mini(amount, u.max - lvl)
+	var cost := Config.bulk_cost(u, lvl, n)
+	if n <= 0 or lvl >= u.max or credits < cost:
 		sfx.play("error")
 		return
 	credits -= cost
-	up[id] = lvl + 1
-	S = Config.stats(up)
+	up[id] = lvl + n
+	S = Config.stats(up, cores)
 	sfx.play("buy")
 	_sync_drones()
 	for i in Config.AMMO.size():
@@ -517,6 +542,22 @@ func buy(id: String) -> void:
 	hud.render_ammo(ammo, unlocked_list())
 	hud.render_shop(credits, up)
 	save_game()
+
+# Reaktor-Neustart: Upgrades, Perlen und Bauwerke zurücksetzen, dafür Kerne (dauerhaft +10 % je Kern)
+func prestige() -> void:
+	var gain := Config.prestige_cores(run_earned)
+	if gain <= 0:
+		hud.toast("Noch zu wenig verdient für einen Neustart.")
+		return
+	cores += gain
+	var f := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
+	f.store_string(JSON.stringify({
+		"v": 1, "level": 0, "cores": cores, "run_earned": 0.0, "shots": shots, "chunk": "", "credits": 0.0,
+		"earned": earned, "inv": [0, 0, 0, 0, 0], "up": {}, "ammo": 0, "play_time": play_time, "won": false,
+		"player": null, "muted": sfx.muted,
+	}))
+	f.close()
+	get_tree().reload_current_scene()
 
 func open_shop() -> void:
 	shop_open = true
@@ -563,10 +604,28 @@ func _update_prompt() -> void:
 			label = "🛒 Shop"
 		touch.set_action("" if shop_open else label)
 
+func _update_explosions(dt: float) -> void:
+	for i in range(explosions.size() - 1, -1, -1):
+		explosions[i][1] -= dt
+		if explosions[i][1] > 0:
+			continue
+		var p: Vector3 = explosions[i][0]
+		explosions.remove_at(i)
+		# Stark genug, um die äußeren Stufen dieses Bauwerks zu sprengen
+		var dmg: float = Config.TIERS[1].hp * Config.LEVELS[level].hp * 1.5
+		fx.ring(p, Color("ff8a2a"), 3.2)
+		fx.burst(p, Color("ffb020"), 26, 8.0)
+		sfx.play("shoot_nova", 1.3)
+		numbers.show_number(p, dmg * 10.0, true)
+		chunk.damage_sphere(p, 2.6, dmg)
+
 func _check_win() -> void:
 	if won or chunk.alive_count > 0:
 		return
 	won = true
+	cores += Config.LEVELS[level].cores
+	S = Config.stats(up, cores)
+	hud.toast("⚛️ Bauwerk geschafft: +%d Kerne (dauerhaft +10 %% je Kern)" % Config.LEVELS[level].cores)
 	sfx.play("win")
 	save_game()
 	await get_tree().create_timer(1.5).timeout
@@ -582,9 +641,10 @@ func _process(delta: float) -> void:
 	time += dt
 	if playing:
 		play_time += dt
-	player.update(dt, chunk, world.colliders, S.speed, World.ISLAND_RADIUS)
+	player.update(dt, chunk, world.colliders, S.speed)
 	_update_weapon(dt)
 	_update_drones(time, dt)
+	_update_explosions(dt)
 	shards.update(dt, chunk, player.pos, S.magnet, can_collect, collect)
 	_check_win()
 
@@ -608,6 +668,8 @@ func _process(delta: float) -> void:
 func _start_autotest() -> void:
 	touch_mode = true
 	resume()
+	up["autoFire"] = 1
+	S = Config.stats(up, cores)
 	player.pos = Vector3(0, 0, 14)
 	player.pitch = 0.1
 	credits = 100000
@@ -615,7 +677,18 @@ func _start_autotest() -> void:
 	print("AUTOTEST bubble: alive=%d shards=%d" % [chunk.alive_count, shards.count])
 	S.magnet = 40.0 # alle Scherben anziehen
 	await get_tree().create_timer(2.0).timeout
-	S = Config.stats(up)
+	S = Config.stats(up, cores)
+	# Explosivblock testen: einen suchen und zünden
+	var boom := -1
+	for b in chunk.n:
+		if chunk.alive[b] and chunk.kind[b] == 1:
+			boom = b
+			break
+	var before_boom := chunk.alive_count
+	if boom >= 0:
+		chunk.destroy(boom, true)
+	await get_tree().create_timer(1.0).timeout
+	print("AUTOTEST explosiv: block=%d broke %d" % [boom, before_boom - chunk.alive_count])
 	print("AUTOTEST collect: shards=%d bag=%d" % [shards.count, bag_count()])
 	buy("fizz")
 	player.pos = Vector3(14, 0, 0)

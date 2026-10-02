@@ -91,10 +91,8 @@ func update(dt: float, chunk: Chunk, player_pos: Vector3, magnet: float, can_col
 			if chunk.get_block(floori(p.x), floori(p.y - 0.14), floori(p.z)) >= 0:
 				p.y = floorf(p.y - 0.14) + 1.14
 				v = Vector3(v.x * 0.6, absf(v.y) * 0.3, v.z * 0.6)
-			var r := Vector2(p.x, p.z).length()
-			if r > World.ISLAND_RADIUS:
-				var k := World.ISLAND_RADIUS / r
-				p.x *= k; p.z *= k
+			if absf(p.x) > World.HALL_HALF or absf(p.z) > World.HALL_HALF:
+				p = World.clamp_to_hall(p)
 				v.x *= -0.5; v.z *= -0.5
 			vel[i] = v
 			pos[i] = p

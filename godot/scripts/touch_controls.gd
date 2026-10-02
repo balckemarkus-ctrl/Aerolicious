@@ -23,11 +23,11 @@ var btn_mute: Panel
 var action_label: Label
 var tap_targets: Array = [] # [Control, Callable]: antippbare HUD-Elemente (z. B. Munition), auch mit zweitem Finger
 
-static func glass(radius: int, color := Color(1, 1, 1, 0.35)) -> StyleBoxFlat:
+static func glass(radius: int, color := Color(0.04, 0.07, 0.13, 0.6)) -> StyleBoxFlat:
 	var sb := StyleBoxFlat.new()
 	sb.bg_color = color
 	sb.set_corner_radius_all(radius)
-	sb.border_color = Color(1, 1, 1, 0.9)
+	sb.border_color = Color(0.18, 0.91, 1.0, 0.8)
 	sb.set_border_width_all(2)
 	sb.shadow_color = Color(0, 0.27, 0.55, 0.25)
 	sb.shadow_size = 8
@@ -44,7 +44,7 @@ func _make_button(text: String, size_: Vector2, font: int, style: StyleBoxFlat) 
 	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	l.add_theme_font_size_override("font_size", font)
-	l.add_theme_color_override("font_color", Color("0b3557"))
+	l.add_theme_color_override("font_color", Color("e6f4ff"))
 	p.add_child(l)
 	add_child(p)
 	return p
@@ -55,10 +55,10 @@ func _ready() -> void:
 	btn_jump = _make_button("⤒", Vector2(120, 120), 54, glass(60))
 	btn_pause = _make_button("❚❚", Vector2(76, 76), 28, glass(38))
 	btn_mute = _make_button("🔊", Vector2(76, 76), 28, glass(38))
-	var green := glass(40, Color("3cc63a", 0.92))
+	var green := glass(40, Color("2fe8ff", 0.9))
 	btn_action = _make_button("", Vector2(250, 84), 28, green)
 	action_label = btn_action.get_child(0)
-	action_label.add_theme_color_override("font_color", Color.WHITE)
+	action_label.add_theme_color_override("font_color", Color("06121f"))
 	btn_action.visible = false
 	get_viewport().size_changed.connect(_layout)
 	_layout()
@@ -74,6 +74,10 @@ func _layout() -> void:
 	btn_action.position = Vector2(scr.x - 250 - 170, scr.y - 84 - m - 18)
 	btn_pause.position = Vector2(scr.x - 76 - m, m - 8)
 	btn_mute.position = Vector2(scr.x - 2 * 76 - m - 14, m - 8)
+
+# Ein Finger zielt gerade auf der rechten Seite (dabei wird gefeuert)
+func aiming() -> bool:
+	return not lookers.is_empty()
 
 func set_muted(m: bool) -> void:
 	(btn_mute.get_child(0) as Label).text = "🔇" if m else "🔊"
@@ -159,8 +163,8 @@ func _release(index: int, p: Vector2) -> void:
 func _draw() -> void:
 	if stick_id < 0:
 		return
-	draw_circle(stick_center, STICK_RADIUS + 26, Color(1, 1, 1, 0.18))
-	draw_arc(stick_center, STICK_RADIUS + 26, 0, TAU, 48, Color(1, 1, 1, 0.75), 3, true)
+	draw_circle(stick_center, STICK_RADIUS + 26, Color(0.04, 0.07, 0.13, 0.4))
+	draw_arc(stick_center, STICK_RADIUS + 26, 0, TAU, 48, Color(0.18, 0.91, 1.0, 0.8), 3, true)
 	var knob := stick_center + (stick_pos - stick_center).limit_length(STICK_RADIUS)
-	draw_circle(knob, 38, Color("bfe9ff", 0.95))
+	draw_circle(knob, 38, Color("2fe8ff", 0.9))
 	draw_circle(knob + Vector2(-9, -10), 14, Color(1, 1, 1, 0.8))

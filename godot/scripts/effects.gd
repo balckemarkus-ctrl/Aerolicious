@@ -78,7 +78,7 @@ func burst(p: Vector3, color: Color, n := 8, speed := 4.0) -> void:
 		var v := Vector3(randf() - 0.5, randf() * 0.8 + 0.1, randf() - 0.5).normalized() * speed * (0.4 + randf())
 		sparks.append([p, v, 0.5 + randf() * 0.3, c])
 
-func projectile(from: Vector3, to: Vector3, color: Color, size: float, on_arrive: Callable) -> void:
+func projectile(from: Vector3, to: Vector3, color: Color, size: float, on_arrive: Callable, speed := 75.0) -> void:
 	if not proj_mats.has(color):
 		var m := StandardMaterial3D.new()
 		m.albedo_color = Color(color, 0.7)
@@ -96,7 +96,7 @@ func projectile(from: Vector3, to: Vector3, color: Color, size: float, on_arrive
 	add_child(_no_shadow(node))
 	node.global_position = from
 	projectiles.append({ "node": node, "from": from, "to": to, "t": 0.0,
-		"dur": maxf(0.03, from.distance_to(to) / 75.0), "cb": on_arrive })
+		"dur": maxf(0.03, from.distance_to(to) / speed), "cb": on_arrive })
 
 func ring(p: Vector3, color: Color, radius: float) -> void:
 	var node := MeshInstance3D.new()

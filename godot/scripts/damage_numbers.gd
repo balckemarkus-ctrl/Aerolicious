@@ -24,15 +24,17 @@ func _ready() -> void:
 		labels.append(l)
 		ages.append(99.0)
 
-func show_number(p: Vector3, value: float) -> void:
+func show_number(p: Vector3, value: float, crit := false) -> void:
 	var now := Time.get_ticks_msec() / 1000.0
-	if now - _last < 0.05:
+	if now - _last < 0.05 and not crit:
 		return
 	_last = now
 	var l := labels[next]
 	ages[next] = 0.0
 	next = (next + 1) % POOL
-	l.text = str(maxi(1, roundi(value)))
+	l.text = Hud.fmt(maxf(1.0, roundf(value))) + ("!" if crit else "")
+	l.font_size = 64 if crit else 46
+	l.modulate = Color("ffb13a") if crit else Color.WHITE
 	l.position = p + Vector3(randf_range(-0.3, 0.3), randf_range(0.0, 0.3), randf_range(-0.3, 0.3))
 	l.visible = true
 

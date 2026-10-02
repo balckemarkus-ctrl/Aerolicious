@@ -13,10 +13,15 @@ schneller, sparsamer und ohne die WebView dazwischen.
 Aero Shards ist ein eigenes Spiel. Allgemeine Spielidee (Blöcke zerschießen, sammeln, aufrüsten) und ein
 sonniger Wiesen-Look sind frei; alles Kennzeichnende ist eigenständig:
 
-- **Fünf Bauwerke** nacheinander (Würfel, Stufenpyramide, Turm, Kugel, Riesenwürfel; zusammen 9.406 Blöcke),
-  jedes mit eigener Blockzahl und steigender Härte (`Config.LEVELS`, Form in `Chunk.shape_cells`).
-- **Blasenbrunnen** statt Recycling: Splitter werden gegen **Perlen** getauscht.
-- **Panzerblöcke** (gestreift, doppelte Haltbarkeit, doppelte Splitter) und seltene **Goldblöcke** (Perlen-Regen).
+- **Sci-Fi-Industriehalle** mit Neon statt Wiese.
+- **Fünf Bauwerke** nacheinander (Würfel, Stufenpyramide, Turm, Kugel, Riesenwürfel; zusammen 19.438 Blöcke),
+  jedes mit eigener Blockzahl und exponentiell steigender Härte (`Config.LEVELS`, Form in `Chunk.shape_cells`).
+- **Splitter-Konverter** statt Recycling: Splitter werden gegen **Perlen** getauscht.
+- Blockarten: **Panzerblöcke** (gestreift), **Goldblöcke** (Perlen-Regen), **Explosivblöcke** (Kettenreaktion),
+  **Kristallblöcke** (dreifache Splitter).
+- **Incremental:** 23 Upgrades mit bis zu 200 Stufen in drei Bereichen, Meilensteine (×2 alle 25 Stufen),
+  Kauf ×1/×10/Max, **Kerne** (dauerhaft +10 % je Kern) aus geschafften Bauwerken und **Reaktor-Neustart**.
+- Feuern auf dem Handy: solange der rechte Daumen zielt; **Auto-Zielsystem** als frühes Upgrade.
 - Eigene Modelle (Blender-Skripte), eigene Klänge (`tools/sounds`), eigener Blasen-Blaster und Glas-Oberfläche.
 - Kein fremder Name, keine fremden Grafiken, Texte oder Logos.
 
@@ -73,6 +78,12 @@ Jedes Modell ist ein Skript in `blender/`, `blender/build_all.sh` exportiert all
 ### Phase 5 – Android-Feinschliff
 - Grafikstufen (Schatten, Auflösung), App-Icon, Startbild
 - Test auf dem Pixel 10 Pro und im Emulator, später signierter Release-Build für den Play Store
+
+### Phase 6 – Ausbau (Wünsche)
+- Erfolge
+- Mehrere Spielstände
+- Mehr Waffen
+- Skins (Blaster, Blöcke, Halle)
 
 ### Später
 - Desktop-Builds (macOS), neuer Trailer

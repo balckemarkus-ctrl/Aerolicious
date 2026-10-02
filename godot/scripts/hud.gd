@@ -6,12 +6,15 @@ extends CanvasLayer
 signal play_pressed
 signal reset_pressed
 signal shop_closed
-signal buy_pressed(id: String)
+signal buy_pressed(id: String, amount: int)
 signal continue_pressed
 signal ammo_selected(index: int)
 signal next_level_pressed
+signal prestige_pressed
 
-const INK := Color("0b3557")
+const INK := Color("e6f4ff")        # Schrift: helles Blau-Weiß
+const NEON := Color("2fe8ff")
+const PEARL := Color("8dffb0")
 
 var touch_mode := false
 var root: Control
@@ -37,6 +40,14 @@ var reset_armed := false
 var shop: Control
 var shop_credits: Label
 var shop_grid: GridContainer
+var shop_tab := 0
+var buy_amount := 1 # 1, 10 oder 0 (= so viel wie möglich)
+var tab_buttons: Array[Button] = []
+var amount_buttons: Array[Button] = []
+var _shop_credits_val := 0.0
+var _shop_up := {}
+var prestige_btn: Button
+var cores_label: Label
 var win: Control
 var win_stats: Label
 var win_sub: Label
@@ -45,13 +56,13 @@ var cont_btn: Button
 
 # ---------- Bausteine ----------
 
-static func style(radius := 18, alpha := 0.55, bg := Color(0.92, 0.97, 1.0)) -> StyleBoxFlat:
+static func style(radius := 14, alpha := 0.72, bg := Color("0b1220")) -> StyleBoxFlat:
 	var sb := StyleBoxFlat.new()
 	sb.bg_color = Color(bg, alpha)
 	sb.set_corner_radius_all(radius)
-	sb.border_color = Color(1, 1, 1, 0.95)
+	sb.border_color = Color(NEON, 0.55)
 	sb.set_border_width_all(2)
-	sb.shadow_color = Color(0, 0.27, 0.55, 0.25)
+	sb.shadow_color = Color(0.1, 0.8, 1.0, 0.18)
 	sb.shadow_size = 10
 	sb.content_margin_left = 18
 	sb.content_margin_right = 18
@@ -71,16 +82,16 @@ static func button(text: String, size: int, green := true) -> Button:
 	var b := Button.new()
 	b.text = text
 	b.add_theme_font_size_override("font_size", size)
-	var fg := Color.WHITE if green else INK
+	var fg := Color("06121f") if green else INK
 	for c in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color"]:
 		b.add_theme_color_override(c, fg)
 	b.add_theme_color_override("font_disabled_color", Color(fg, 0.5))
 	for st in ["normal", "hover", "pressed", "focus", "disabled"]:
-		var bg := Color("3cc63a") if green else Color("d6eefc")
+		var bg := NEON if green else Color("1c2a3e")
 		if st == "pressed":
 			bg = bg.darkened(0.15)
 		if st == "disabled":
-			bg = Color("a9b9c4")
+			bg = Color("33404f")
 		var sb := style(40, 0.95, bg)
 		sb.content_margin_left = 26
 		sb.content_margin_right = 26
@@ -91,7 +102,7 @@ static func bar(fill_color: Color, height: int) -> Array:
 	var back := Panel.new()
 	back.custom_minimum_size = Vector2(0, height)
 	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color(0, 0.24, 0.47, 0.15)
+	sb.bg_color = Color(1, 1, 1, 0.1)
 	sb.set_corner_radius_all(height / 2)
 	back.add_theme_stylebox_override("panel", sb)
 	var fill := Panel.new()
@@ -108,6 +119,13 @@ static func set_bar(fill: Panel, ratio: float) -> void:
 	fill.size = Vector2(back.size.x * clampf(ratio, 0, 1), back.size.y)
 
 static func fmt(v: float) -> String:
+	if v >= 1e6:
+		var units := ["Mio.", "Mrd.", "Bio.", "Brd.", "Trio.", "Trd."]
+		var e := floori(log(v) / log(1000.0)) - 2
+		if e >= units.size():
+			return ("%.2e" % v).replace(".", ",")
+		var x := v / pow(1000.0, e + 2)
+		return ("%.2f" % x).replace(".", ",") + " " + units[e]
 	var s := str(floori(v))
 	var out := ""
 	while s.length() > 3:
@@ -119,7 +137,7 @@ func _overlay() -> Control:
 	var c := Control.new()
 	c.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	var dim := ColorRect.new()
-	dim.color = Color(0, 0.24, 0.47, 0.3)
+	dim.color = Color(0.0, 0.02, 0.06, 0.55)
 	dim.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	c.add_child(dim)
 	root.add_child(c)
@@ -144,7 +162,7 @@ func _centered_panel(parent: Control, alpha := 0.72) -> VBoxContainer:
 
 func _title(text: String) -> Label:
 	var t := label(text, 64, Color.WHITE)
-	t.add_theme_color_override("font_outline_color", Color("3aa0e0"))
+	t.add_theme_color_override("font_outline_color", Color("ff2fc8"))
 	t.add_theme_constant_override("outline_size", 12)
 	t.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	return t
@@ -186,7 +204,7 @@ func _build_hud() -> void:
 	blocks_label = label("", 22)
 	row.add_child(blocks_label)
 	tv.add_child(row)
-	var pb := bar(Color("3cc23a"), 14)
+	var pb := bar(Color("ff2fc8"), 12)
 	tv.add_child(pb[0])
 	progress_fill = pb[1]
 	var tiers := HBoxContainer.new()
@@ -215,8 +233,8 @@ func _build_hud() -> void:
 	wallet.add_child(wv)
 	var cr := HBoxContainer.new()
 	cr.add_theme_constant_override("separation", 8)
-	cr.add_child(Ball.new(Color("3cc63a"), 26))
-	credits_label = label("", 30, Color("0a5a2a"))
+	cr.add_child(Ball.new(PEARL, 26))
+	credits_label = label("", 30, PEARL)
 	cr.add_child(credits_label)
 	wv.add_child(cr)
 	var br := HBoxContainer.new()
@@ -227,7 +245,7 @@ func _build_hud() -> void:
 	bag_label = label("", 17)
 	br.add_child(bag_label)
 	wv.add_child(br)
-	var bb := bar(Color("1ea2e8"), 10)
+	var bb := bar(NEON, 10)
 	wv.add_child(bb[0])
 	bag_fill = bb[1]
 	inv_label = label("", 15)
@@ -306,18 +324,19 @@ func _build_menu() -> void:
 	box.add_child(sub)
 	var how := label(
 		"Zerlege fünf Bauwerke aus bunten Blöcken · Sammle die Splitter ein\n"
-		+ "Tausche sie am Blasenbrunnen gegen Perlen · Kaufe im Shop Upgrades, Munition und Drohnen\n"
-		+ "Gestreifte Panzerblöcke halten mehr aus · Goldblöcke bringen einen Perlen-Regen", 18)
+		+ "Tausche sie am Konverter gegen Perlen · Kaufe im Shop Upgrades, Munition und Drohnen\n"
+		+ "Panzerblöcke (gestreift) halten mehr aus · Goldblöcke bringen Perlen\n"
+		+ "Explosivblöcke sprengen ihre Nachbarn · Kristallblöcke geben dreifache Splitter", 18)
 	how.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	box.add_child(how)
 	var keys := label(
-		"Links: Stick zum Laufen (ganz raus = rennen) · Rechts: wischen zum Zielen\n"
-		+ "Feuert automatisch auf Blöcke · ⤒ springen · Munition unten antippen · ❚❚ Pause"
+		"Links: Stick zum Laufen (ganz raus = rennen) · Rechts: Daumen auflegen = zielen und feuern\n"
+		+ "⤒ springen · Munition unten antippen · ❚❚ Pause · Auto-Zielsystem gibt es im Shop"
 		if touch_mode else
 		"W A S D laufen · Shift rennen · Leertaste springen · Maus zielen · Klick schießen\n"
 		+ "E interagieren · 1–4 / Mausrad Munition · Esc Pause", 17)
 	keys.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	keys.add_theme_color_override("font_color", Color("1d5f99"))
+	keys.add_theme_color_override("font_color", NEON)
 	box.add_child(keys)
 	var row := HBoxContainer.new()
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
@@ -332,6 +351,15 @@ func _build_menu() -> void:
 	reset_btn.pressed.connect(_on_reset)
 	row.add_child(reset_btn)
 	box.add_child(row)
+	cores_label = label("", 18, NEON)
+	cores_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	box.add_child(cores_label)
+	var prow := CenterContainer.new()
+	prestige_btn = button("Reaktor-Neustart", 20, false)
+	prestige_btn.custom_minimum_size = Vector2(420, 60)
+	prestige_btn.pressed.connect(_on_prestige)
+	prow.add_child(prestige_btn)
+	box.add_child(prow)
 
 func _on_reset() -> void:
 	# Zweimal tippen zum Bestätigen (keine System-Dialoge nötig)
@@ -340,6 +368,25 @@ func _on_reset() -> void:
 		reset_btn.text = "Wirklich? Nochmal tippen"
 		return
 	reset_pressed.emit()
+
+var prestige_armed := false
+var _prestige_gain := 0
+
+func set_prestige(cores: int, gain: int) -> void:
+	_prestige_gain = gain
+	prestige_armed = false
+	cores_label.text = "⚛️ Kerne: %d  (Schaden und Perlen +%d %%)" % [cores, cores * 10]
+	prestige_btn.text = "Reaktor-Neustart: +%d Kerne" % gain
+	prestige_btn.disabled = gain <= 0
+	prestige_btn.visible = gain > 0 or cores > 0
+
+func _on_prestige() -> void:
+	# Zweimal tippen zum Bestätigen
+	if not prestige_armed:
+		prestige_armed = true
+		prestige_btn.text = "Upgrades und Perlen weg, +%d Kerne. Nochmal tippen" % _prestige_gain
+		return
+	prestige_pressed.emit()
 
 func show_menu(play_text: String, can_reset: bool) -> void:
 	play_btn.text = play_text
@@ -363,17 +410,39 @@ func _build_shop() -> void:
 	panel.add_child(v)
 	var head := HBoxContainer.new()
 	head.add_theme_constant_override("separation", 20)
-	var t := label("Aero-Shop", 38, Color("0b5ea8"))
+	var t := label("Aero-Shop", 38, NEON)
 	t.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	head.add_child(t)
-	head.add_child(Ball.new(Color("3cc63a"), 28))
-	shop_credits = label("", 30, Color("0a5a2a"))
+	head.add_child(Ball.new(PEARL, 28))
+	shop_credits = label("", 30, PEARL)
 	head.add_child(shop_credits)
 	var close := button("Schließen" if touch_mode else "Schließen (E)", 22, false)
 	close.custom_minimum_size = Vector2(200, 60)
 	close.pressed.connect(func(): shop_closed.emit())
 	head.add_child(close)
 	v.add_child(head)
+	var bar_row := HBoxContainer.new()
+	bar_row.add_theme_constant_override("separation", 10)
+	for i in Config.TABS.size():
+		var tb := button(Config.TABS[i], 20, false)
+		tb.custom_minimum_size = Vector2(170, 52)
+		tb.pressed.connect(func():
+			shop_tab = i
+			render_shop(_shop_credits_val, _shop_up))
+		bar_row.add_child(tb)
+		tab_buttons.append(tb)
+	var gap := Control.new()
+	gap.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	bar_row.add_child(gap)
+	for a in [1, 10, 0]:
+		var ab := button("×%d" % a if a > 0 else "Max", 20, false)
+		ab.custom_minimum_size = Vector2(90, 52)
+		ab.pressed.connect(func():
+			buy_amount = a
+			render_shop(_shop_credits_val, _shop_up))
+		bar_row.add_child(ab)
+		amount_buttons.append(ab)
+	v.add_child(bar_row)
 	var scroll := ScrollContainer.new()
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
@@ -389,15 +458,28 @@ func _build_shop() -> void:
 	shop.visible = false
 
 func render_shop(credits: float, up: Dictionary) -> void:
+	_shop_credits_val = credits
+	_shop_up = up
 	shop_credits.text = fmt(credits)
+	for i in tab_buttons.size():
+		tab_buttons[i].add_theme_stylebox_override("normal", style(40, 0.95, NEON if i == shop_tab else Color("1c2a3e")))
+		tab_buttons[i].add_theme_color_override("font_color", Color("06121f") if i == shop_tab else INK)
+	var amounts := [1, 10, 0]
+	for i in amount_buttons.size():
+		amount_buttons[i].add_theme_stylebox_override("normal", style(40, 0.95, Color("ff2fc8") if amounts[i] == buy_amount else Color("1c2a3e")))
 	for c in shop_grid.get_children():
 		c.queue_free()
 	for u in Config.UPGRADES:
+		if u.tab != shop_tab:
+			continue
+		if u.has("needs") and up.get(u.needs, 0) == 0:
+			continue
 		var lvl: int = up.get(u.id, 0)
 		var maxed: bool = lvl >= u.max
-		var cost := Config.upgrade_cost(u, lvl)
+		var count := Config.affordable(u, lvl, credits) if buy_amount == 0 else mini(buy_amount, u.max - lvl)
+		var cost := Config.bulk_cost(u, lvl, maxi(1, count))
 		var card := PanelContainer.new()
-		var sb := style(16, 0.75 if not maxed else 0.4, Color.WHITE)
+		var sb := style(12, 0.85 if not maxed else 0.45, Color("142033"))
 		sb.shadow_size = 0
 		card.add_theme_stylebox_override("panel", sb)
 		card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -416,11 +498,12 @@ func render_shop(credits: float, up: Dictionary) -> void:
 		var ll := label(lvl_text, 14)
 		ll.add_theme_color_override("font_color", Color(INK, 0.65))
 		cv.add_child(ll)
-		var b := button("Maximal" if maxed else "%s Perlen" % fmt(cost), 19)
+		var label_text := "Maximal" if maxed else ("%s Perlen" % fmt(cost) if count <= 1 else "+%d  ·  %s Perlen" % [count, fmt(cost)])
+		var b := button(label_text, 19)
 		b.custom_minimum_size = Vector2(0, 52)
-		b.disabled = maxed or credits < cost
+		b.disabled = maxed or credits < cost or count == 0
 		b.mouse_filter = Control.MOUSE_FILTER_PASS
-		b.pressed.connect(func(): buy_pressed.emit(u.id))
+		b.pressed.connect(func(): buy_pressed.emit(u.id, buy_amount))
 		cv.add_child(b)
 		shop_grid.add_child(card)
 
@@ -475,7 +558,7 @@ func update_stats(chunk: Chunk, credits: float, inv: Array, bag: int, auto_recyc
 	bag_label.text = "Fern-Brunnen" if auto_recycle else "%s / %s" % [fmt(n), fmt(bag)]
 	set_bar(bag_fill, 1.0 if auto_recycle else float(n) / bag)
 	var full := not auto_recycle and n >= bag
-	(bag_fill.get_theme_stylebox("panel") as StyleBoxFlat).bg_color = Color("ff6a3d") if full else Color("1ea2e8")
+	(bag_fill.get_theme_stylebox("panel") as StyleBoxFlat).bg_color = Color("ff6a3d") if full else NEON
 	inv_label.text = " · ".join(parts)
 	inv_label.visible = not parts.is_empty()
 	fps_label.text = "%d FPS" % Engine.get_frames_per_second()
@@ -488,9 +571,9 @@ func render_ammo(current: int, unlocked: Array) -> void:
 		sb.content_margin_top = 6
 		sb.content_margin_bottom = 6
 		if active:
-			sb.border_color = Color.WHITE
-			sb.set_border_width_all(4)
-			sb.shadow_color = Color(0.3, 0.78, 1.0, 0.9)
+			sb.border_color = NEON
+			sb.set_border_width_all(3)
+			sb.shadow_color = Color(0.2, 0.9, 1.0, 0.6)
 			sb.shadow_size = 14
 		slot.add_theme_stylebox_override("panel", sb)
 		slot.modulate = Color.WHITE if unlocked[i] else Color(1, 1, 1, 0.45)

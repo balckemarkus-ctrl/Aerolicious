@@ -48,7 +48,7 @@ func collides(chunk: Chunk, px: float, py: float, pz: float) -> bool:
 					return true
 	return false
 
-func update(dt: float, chunk: Chunk, colliders: Array, speed: float, island_radius: float) -> void:
+func update(dt: float, chunk: Chunk, colliders: Array, speed: float) -> void:
 	var f := float(_key(KEY_W) or _key(KEY_UP)) - float(_key(KEY_S) or _key(KEY_DOWN)) + stick.y
 	var s := float(_key(KEY_D) or _key(KEY_RIGHT)) - float(_key(KEY_A) or _key(KEY_LEFT)) + stick.x
 	# Stick ganz ausgelenkt = rennen
@@ -93,7 +93,7 @@ func update(dt: float, chunk: Chunk, colliders: Array, speed: float, island_radi
 	else:
 		pos.y = ny
 
-	# Runde Hindernisse (Station, Bäume) und Inselrand
+	# Runde Hindernisse (Stationen) und Hallenwände
 	for c in colliders:
 		var dx: float = pos.x - c[0]
 		var dz: float = pos.z - c[1]
@@ -102,10 +102,7 @@ func update(dt: float, chunk: Chunk, colliders: Array, speed: float, island_radi
 		if d < mn and d > 0.0001:
 			pos.x = c[0] + dx / d * mn
 			pos.z = c[1] + dz / d * mn
-	var r := Vector2(pos.x, pos.z).length()
-	if r > island_radius:
-		pos.x *= island_radius / r
-		pos.z *= island_radius / r
+	pos = World.clamp_to_hall(pos)
 
 	# Kopfwippen beim Laufen
 	var moving := Vector2(vel.x, vel.z).length()

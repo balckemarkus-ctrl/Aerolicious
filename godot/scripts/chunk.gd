@@ -23,6 +23,7 @@ var tier := PackedByteArray()
 var hp := PackedFloat32Array()
 var alive := PackedByteArray()
 var gold := PackedByteArray()        # seltene Goldblöcke (Perlen-Bonus)
+var kind := PackedByteArray()        # 0 normal, 1 Explosivblock, 2 Kristallblock
 var inst := PackedInt32Array()       # Slot im sichtbaren MultiMesh, -1 = unsichtbar
 var vis: Array = [[], [], [], [], []] # sichtbare Blöcke je Stufe
 var alive_count := 0
@@ -46,6 +47,7 @@ func _init(block_mesh: Mesh, level_index := 0) -> void:
 	hp.resize(n)
 	alive.resize(n)
 	gold.resize(n)
+	kind.resize(n)
 	inst.fill(-1)
 	exposed_pos.fill(-1)
 	_generate(cells, Config.LEVELS[level].max_tier)
@@ -70,9 +72,10 @@ static func shape_cells(lv: Dictionary) -> Array[Vector3i]:
 						out.append(Vector3i(i, j, k))
 		"tower":
 			var r := sz.x / 2.0
+			var e := ceili(r) + 1
 			for j in sz.y:
-				for i in range(-6, 7):
-					for k in range(-6, 7):
+				for i in range(-e, e + 1):
+					for k in range(-e, e + 1):
 						var d := Vector2(i, k).length()
 						if d > r:
 							continue
@@ -82,9 +85,10 @@ static func shape_cells(lv: Dictionary) -> Array[Vector3i]:
 						out.append(Vector3i(i, j, k))
 		"sphere":
 			var rad := sz.x / 2.0
-			for i in range(-9, 10):
+			var e := ceili(rad) + 1
+			for i in range(-e, e + 1):
 				for j in sz.y:
-					for k in range(-9, 10):
+					for k in range(-e, e + 1):
 						if Vector3(i, j - rad + 0.5, k).length() <= rad:
 							out.append(Vector3i(i, j, k))
 	return out
@@ -142,20 +146,27 @@ func _generate(cells: Array[Vector3i], max_tier: int) -> void:
 		tier[r] = t
 		alive[r] = 1
 		var g := sin(c.x * 12.3 + c.y * 71.9 + c.z * 33.7 + level * 5.1) * 9137.7
-		gold[r] = 1 if t >= 1 and g - floorf(g) < 0.012 else 0
+		var gf := g - floorf(g)
+		gold[r] = 1 if t >= 1 and gf < 0.012 else 0
+		kind[r] = 1 if gf > 0.988 else (2 if gf > 0.5 and gf < 0.525 else 0) # ~1,2 % Explosiv, ~2,5 % Kristall
 		hp[r] = max_hp(r)
 		tier_total[t] += 1
 		grid[key(c.x, c.y, c.z)] = r
 	alive_count = n
 	tier_alive = tier_total.duplicate()
 
+# Daten für den Block-Shader: Streifen, Gold, Explosiv, Kristall
+func custom(b: int) -> Color:
+	return Color(striped(b), gold[b], 1.0 if kind[b] == 1 else 0.0, 1.0 if kind[b] == 2 else 0.0)
+
 # Panzerblöcke (gestreift) halten doppelt so viel aus
 func max_hp(b: int) -> float:
-	return Config.TIERS[tier[b]].hp * (2.0 if striped(b) > 0.5 else 1.0)
+	var k := 0.5 if kind[b] == 1 else (1.5 if kind[b] == 2 else (2.0 if striped(b) > 0.5 else 1.0))
+	return Config.TIERS[tier[b]].hp * Config.LEVELS[level].hp * k
 
 # Etwa jeder dritte Block ist ein gestreifter Panzerblock (fest je Position)
 func striped(b: int) -> float:
-	if gold[b]:
+	if gold[b] or kind[b] != 0:
 		return 0.0
 	var h := sin(bi[b] * 91.7 + bj[b] * 47.3 + bk[b] * 13.1) * 43758.5
 	return 1.0 if h - floorf(h) < 0.3 else 0.0
@@ -174,7 +185,7 @@ func _build_meshes(block_mesh: Mesh) -> void:
 		mm.mesh = mesh
 		mm.instance_count = maxi(1, tier_total[t])
 		mm.visible_instance_count = 0
-		mm.custom_aabb = AABB(Vector3(-12, -1, -12), Vector3(24, 24, 24))
+		mm.custom_aabb = AABB(Vector3(-14, -1, -14), Vector3(28, 26, 28))
 		var mmi := MultiMeshInstance3D.new()
 		mmi.multimesh = mm
 		add_child(mmi)
@@ -196,7 +207,7 @@ func base_color(b: int) -> Color:
 	var ratio: float = hp[b] / max_hp(b)
 	# Leichte Variation pro Block für den glänzenden Fliesen-Look
 	var v := 0.95 + 0.05 * sin(bi[b] * 12.9 + bj[b] * 78.2 + bk[b] * 37.7)
-	var c: Color = Color("ffcf3a") if gold[b] else Config.TIERS[t].color
+	var c: Color = Color("ffcf3a") if gold[b] else (Color("ff9a1a") if kind[b] == 1 else (Config.TIERS[t].color.lightened(0.45) if kind[b] == 2 else Config.TIERS[t].color))
 	var f := v * (0.7 + 0.3 * ratio)
 	return Color(c.r * f, c.g * f, c.b * f)
 
@@ -208,7 +219,7 @@ func _show_block(b: int) -> void:
 	inst[b] = slot
 	mms[t].set_instance_transform(slot, Transform3D(BLOCK_BASIS, center(b)))
 	mms[t].set_instance_color(slot, base_color(b))
-	mms[t].set_instance_custom_data(slot, Color(striped(b), gold[b], 0, 0))
+	mms[t].set_instance_custom_data(slot, custom(b))
 	mms[t].visible_instance_count = list.size()
 
 func _hide_block(b: int) -> void:
@@ -223,7 +234,7 @@ func _hide_block(b: int) -> void:
 		inst[last] = slot
 		mms[t].set_instance_transform(slot, Transform3D(BLOCK_BASIS, center(last)))
 		mms[t].set_instance_color(slot, FLASH if flashes.has(last) else base_color(last))
-		mms[t].set_instance_custom_data(slot, Color(striped(last), gold[last], 0, 0))
+		mms[t].set_instance_custom_data(slot, custom(last))
 	inst[b] = -1
 	mms[t].visible_instance_count = list.size()
 

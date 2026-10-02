@@ -8,6 +8,8 @@ varying vec3 local_pos;
 varying vec3 local_n;
 varying float striped;
 varying float golden;
+varying float explosive;
+varying float crystal;
 
 vec3 srgb_to_linear(vec3 c) {
 	return mix(c / 12.92, pow((c + 0.055) / 1.055, vec3(2.4)), step(vec3(0.04045), c));
@@ -18,6 +20,8 @@ void vertex() {
 	local_n = NORMAL;
 	striped = INSTANCE_CUSTOM.r;
 	golden = INSTANCE_CUSTOM.g;
+	explosive = INSTANCE_CUSTOM.b;
+	crystal = INSTANCE_CUSTOM.a;
 }
 
 void fragment() {
@@ -28,9 +32,15 @@ void fragment() {
 	c = mix(c, c * 0.62, striped * band);
 	// Kanten leicht aufhellen (weiche Fase fängt Licht)
 	float edge = smoothstep(0.38, 0.48, max(max(abs(local_pos.x) * (1.0 - an.x), abs(local_pos.y) * (1.0 - an.y)), abs(local_pos.z) * (1.0 - an.z)));
+	// Explosivblock: breite schwarz-gelbe Warnstreifen und pulsierender Glutkern
+	float hz = step(0.5, fract((uv.x - uv.y) * 1.6));
+	c = mix(c, mix(c, vec3(0.03), hz), explosive);
+	float pulse = 0.5 + 0.5 * sin(TIME * 6.0);
 	ALBEDO = c * (1.0 + edge * 0.18);
 	ROUGHNESS = mix(roughness, 0.18, golden);
 	METALLIC = golden * 0.75;
-	EMISSION = c * golden * 0.35;
-	SPECULAR = 0.45;
+	// Neon-Kanten in der Blockfarbe
+	EMISSION = c * (golden * 0.35 + edge * 1.4 + crystal * 1.6) + vec3(1.0, 0.25, 0.05) * explosive * pulse * (1.0 - hz) * 0.8;
+	ROUGHNESS = mix(ROUGHNESS, 0.05, crystal);
+	SPECULAR = mix(0.45, 1.0, crystal);
 }
