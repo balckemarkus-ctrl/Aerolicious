@@ -5,7 +5,8 @@ config_version=5
 [application]
 
 config/name="Aero Shards"
-run/main_scene="res://gallery.tscn"
+run/main_scene="res://main.tscn"
+config/quit_on_go_back=false
 config/features=PackedStringArray("4.7", "Mobile")
 
 [display]

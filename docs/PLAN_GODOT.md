@@ -42,7 +42,7 @@ Jedes Modell ist ein Skript in `blender/`, `blender/build_all.sh` exportiert all
 (einzelne Modelle: `./blender/build_all.sh shop blaster`). Die `.blend`-Dateien und Vorschaubilder landen in
 `blender/out/` (nicht im Git, jederzeit neu erzeugbar). Die Szene `godot/gallery.tscn` zeigt alle Modelle in der Welt.
 
-### Phase 2 – Spielkern in Godot
+### Phase 2 – Spielkern in Godot ✅ (erste Fassung, Skripte in `godot/scripts/`)
 - Brocken: Voxel-Gitter mit 3.757 Blöcken in 5 Stufen, Darstellung per MultiMesh je Stufe,
   nur sichtbare Blöcke, Voxel-Raycast (wie `src/chunk.js`)
 - Spieler: Ego-Steuerung mit Voxel-Kollision, Springen, Rennen
