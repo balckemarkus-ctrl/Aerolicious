@@ -10,7 +10,9 @@ var slot := 1
 # Einstellungen für alle Spielstände: Zielempfindlichkeit, Grafik (0 niedrig, 1 mittel, 2 hoch), Lautstärke, Vibration
 var settings := { "sens": 1.0, "quality": 1, "volume": 0.8, "vibration": true }
 var _last_vibe := 0
-var saved_at := 0.0 # Zeitpunkt des letzten Speicherns (für Offline-Einnahmen)
+var saved_at := 0.0
+var tutorial := 0 # Schritt der Einführung (5 = fertig)
+var _tut_start := Vector3.ZERO # Zeitpunkt des letzten Speicherns (für Offline-Einnahmen)
 var save_path := "user://save_1.json"
 
 var args := OS.get_cmdline_user_args()
@@ -244,6 +246,7 @@ func _ready() -> void:
 	apply_settings() # erst jetzt existiert auch die Touch-Steuerung
 	if had_save:
 		_offline_earnings()
+	_tut_start = player.pos
 	set_ammo(ammo if unlocked(ammo) else 0)
 	if touch:
 		touch.set_muted(sfx.muted)
@@ -253,7 +256,7 @@ func _ready() -> void:
 	hud.set_prestige(cores, Config.prestige_cores(run_earned))
 	hud.set_levels(level, unlocked_level)
 	hud.show_menu("Weiter spielen" if had_save else "Spielen", had_save)
-	if not had_save:
+	if false:
 		get_tree().create_timer(2.5).timeout.connect(func():
 			hud.toast("Tipp: Sammle Splitter und bring sie zum Konverter (links)."))
 	if autotest:
@@ -261,8 +264,7 @@ func _ready() -> void:
 	else:
 		_prewarm()
 	if Array(args).any(func(x): return x.begins_with("--showlevel=")):
-		hud.menu.visible = false
-		hud.set_hud_visible(true)
+		resume()
 		player.pos = Vector3(0, 0, 44)
 		player.pitch = 0.22
 	if "--showshop" in args: # Vorschau des Shops (Entwicklung)
@@ -275,6 +277,8 @@ func _ready() -> void:
 		_show_skins()
 	if "--showach" in args: # Vorschau der Erfolge (Entwicklung)
 		hud.show_achievements(["first_block", "blocks_100", "gold_1", "auto"])
+	if "--tuttest" in args: # Test der Einführung (Entwicklung, ohne Spielstand)
+		_tutorial_test()
 	if "--leveltest" in args:
 		_level_test()
 
@@ -355,7 +359,7 @@ func save_game() -> void:
 		return
 	f.store_string(JSON.stringify({
 		"v": 1, "level": level, "cores": cores, "run_earned": run_earned, "shots": shots, "counters": counters, "achieved": achieved, "unlocked_level": unlocked_level, "chunks": chunks, "chunk": chunk.serialize(), "credits": credits, "earned": earned, "inv": inv, "up": up,
-		"ammo": ammo, "play_time": play_time, "won": won, "player": player.serialize(), "muted": sfx.muted, "skin_gun": skin_gun, "skin_palette": Config.palette, "saved_at": Time.get_unix_time_from_system(),
+		"ammo": ammo, "play_time": play_time, "won": won, "player": player.serialize(), "muted": sfx.muted, "skin_gun": skin_gun, "skin_palette": Config.palette, "saved_at": Time.get_unix_time_from_system(), "tutorial": tutorial,
 	}))
 
 func load_game() -> bool:
@@ -380,6 +384,7 @@ func load_game() -> bool:
 	achieved = d.get("achieved", [])
 	skin_gun = clampi(int(d.get("skin_gun", 0)), 0, Config.GUN_SKINS.size() - 1)
 	saved_at = float(d.get("saved_at", 0))
+	tutorial = int(d.get("tutorial", 5)) # alte Spielstände: Einführung schon erledigt
 	play_time = d.play_time
 	won = d.won
 	if d.get("player") != null:
@@ -865,6 +870,42 @@ func _update_explosions(dt: float) -> void:
 		numbers.show_number(p, dmg * 10.0, true)
 		chunk.damage_sphere(p, 2.6, dmg)
 
+const TUTORIAL_TOUCH := [
+	"Lauf mit dem linken Daumen zum Bauwerk.",
+	"Leg den rechten Daumen auf: Du zielst und feuerst. Zerstöre einen Block.",
+	"Lauf über die Splitter, um sie einzusammeln.",
+	"Bring die Splitter zum Konverter (links) und tippe auf „Eintauschen“.",
+	"Kauf im Shop (rechts) dein erstes Upgrade.",
+]
+const TUTORIAL_DESKTOP := [
+	"Lauf mit W A S D zum Bauwerk.",
+	"Ziel mit der Maus und halte die linke Maustaste gedrückt. Zerstöre einen Block.",
+	"Lauf über die Splitter, um sie einzusammeln.",
+	"Bring die Splitter zum Konverter (links) und drücke E.",
+	"Kauf im Shop (rechts, Taste E) dein erstes Upgrade.",
+]
+
+# Einführung: ein Schritt nach dem anderen, hakt sich selbst ab
+func _update_tutorial() -> void:
+	if tutorial >= 5 or not playing:
+		hud.set_tutorial("", 0)
+		return
+	var done := false
+	match tutorial:
+		0: done = player.pos.distance_to(_tut_start) > 6.0
+		1: done = counters.get("broken", 0) >= 1
+		2: done = bag_count() >= 3 or earned > 0
+		3: done = earned > 0
+		4: done = not up.is_empty()
+	if done:
+		tutorial += 1
+		sfx.play("collect", 1.3)
+		if tutorial >= 5:
+			hud.toast("Einführung geschafft. Viel Spaß beim Abreißen!")
+			save_game()
+	var texts := TUTORIAL_TOUCH if touch_mode else TUTORIAL_DESKTOP
+	hud.set_tutorial(texts[tutorial] if tutorial < 5 else "", tutorial + 1)
+
 func _check_achievements() -> void:
 	for a in Achievements.LIST:
 		if a.id in achieved or not Achievements.reached(a.id, self):
@@ -912,6 +953,7 @@ func _process(delta: float) -> void:
 		ach_timer = 0.5
 		if not autotest:
 			_check_achievements()
+		_update_tutorial()
 	shards.update(dt, chunk, player.pos, S.magnet, can_collect, collect)
 	_check_win()
 
@@ -1021,6 +1063,7 @@ func _start_autotest() -> void:
 	await get_tree().create_timer(1.0).timeout
 	print("AUTOTEST jetpack: Höhe nach 2,5 s = %.1f (Decke %.0f), nach 1 s Gleiten = %.1f" % [top, S.jet_ceiling, player.pos.y])
 	_check_achievements()
+	tutorial = 5
 	print("AUTOTEST erfolge: %d freigeschaltet: %s" % [achieved.size(), ", ".join(achieved)])
 	get_tree().quit()
 
@@ -1038,3 +1081,30 @@ func _level_test() -> void:
 	unlocked_level = 2
 	print("LEVELTEST vorher: level=%d blocks=%d alive=%d" % [level, chunk.n, chunk.alive_count])
 	select_level(2)
+
+func _tutorial_test() -> void:
+	autotest = true # nichts speichern
+	tutorial = 0
+	resume()
+	_tut_start = player.pos
+	var log := []
+	await get_tree().create_timer(0.6).timeout
+	log.append(tutorial)
+	player.pos += Vector3(0, 0, -8)          # Schritt 1: laufen
+	await get_tree().create_timer(0.6).timeout
+	log.append(tutorial)
+	chunk.destroy(chunk.exposed_arr[0], true) # Schritt 2: Block zerstören
+	count("broken")
+	await get_tree().create_timer(0.6).timeout
+	log.append(tutorial)
+	inv[0] = 3                                # Schritt 3: Splitter einsammeln
+	await get_tree().create_timer(0.6).timeout
+	log.append(tutorial)
+	earn(5)                                   # Schritt 4: eintauschen
+	await get_tree().create_timer(0.6).timeout
+	log.append(tutorial)
+	up["damage"] = 1                          # Schritt 5: Upgrade kaufen
+	await get_tree().create_timer(0.6).timeout
+	log.append(tutorial)
+	print("TUTTEST Schritte: ", log, " Hinweis sichtbar am Ende: ", hud.tut_panel.visible)
+	get_tree().quit()

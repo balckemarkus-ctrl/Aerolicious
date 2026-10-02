@@ -66,6 +66,9 @@ var prompt: PanelContainer
 var prompt_label: Label
 var toasts: VBoxContainer
 var fps_label: Label
+var tut_panel: PanelContainer
+var tut_label: Label
+var tut_step: Label
 
 var menu: Control
 var play_btn: Button
@@ -356,6 +359,25 @@ func _build_hud() -> void:
 	prompt.add_child(prompt_label)
 	prompt.visible = false
 	root.add_child(prompt)
+
+	# Einführung: Hinweis unter der Fortschrittsanzeige
+	tut_panel = PanelContainer.new()
+	var tsb := style(6, 0.95, Color("0d2232"))
+	tsb.border_color = NEON
+	tsb.set_border_width_all(2)
+	tut_panel.add_theme_stylebox_override("panel", tsb)
+	tut_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	tut_panel.set_anchors_and_offsets_preset(Control.PRESET_CENTER_TOP)
+	tut_panel.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	tut_panel.position.y = 112
+	var tut_box := VBoxContainer.new()
+	tut_step = caption("", NEON)
+	tut_box.add_child(tut_step)
+	tut_label = label("", 20, Color.WHITE)
+	tut_box.add_child(tut_label)
+	tut_panel.add_child(tut_box)
+	tut_panel.visible = false
+	root.add_child(tut_panel)
 
 	toasts = VBoxContainer.new()
 	toasts.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -1025,6 +1047,15 @@ func render_ammo(current: int, unlocked: Array) -> void:
 func _on_slot_input(e: InputEvent, i: int) -> void:
 	if e is InputEventMouseButton and e.pressed and e.button_index == MOUSE_BUTTON_LEFT:
 		ammo_selected.emit(i)
+
+func set_tutorial(text: String, step: int) -> void:
+	tut_panel.visible = text != "" and not menu.visible
+	if text == "":
+		return
+	tut_label.text = text
+	tut_step.text = "EINFÜHRUNG  %d / 5" % step
+	tut_panel.reset_size() # Größe passt sich nach dem Layout an, daher bei jedem Aufruf neu zentrieren
+	tut_panel.position.x = (root.get_viewport_rect().size.x - tut_panel.size.x) / 2.0
 
 func set_prompt(text: String) -> void:
 	prompt.visible = text != "" and not touch_mode
