@@ -34,6 +34,34 @@ const TIERS := [
 	{ "name": "Rot",    "color": Color("ff4a3a"), "hp": 2500.0, "value": 250, "shards": 4, "frac": 0.08 },
 ]
 
+# Skins: Blockfarben (Paletten) und Blaster-Lackierungen, freigeschaltet durch Fortschritt.
+# "req": "ach" = Anzahl Erfolge, "levels" = geschaffte Bauwerke, "prestige" = Reaktor-Neustarts
+const PALETTES := [
+	{ "name": "Standard",  "colors": ["4fb6f7", "7ad83a", "ffd43a", "ff8a2a", "ff4a3a"] },
+	{ "name": "Pastell",   "colors": ["9cd3ff", "b8f0a0", "fff1a8", "ffc59c", "ffa3b5"], "req": "ach", "n": 3 },
+	{ "name": "Synthwave", "colors": ["3cf2ff", "b14cff", "ff4fd8", "ff9a3c", "fff36a"], "req": "levels", "n": 3 },
+	{ "name": "Neon-Mono", "colors": ["7ff8ff", "4fd9ff", "2fb3ff", "1e86ff", "8f5bff"], "req": "prestige", "n": 1 },
+]
+const GUN_SKINS := [
+	{ "name": "Standard",  "body": "e8eef5", "dark": "232b36", "accent": "ff5fd2", "metal": 0.3 },
+	{ "name": "Chrom",     "body": "c9d3de", "dark": "5b6b7d", "accent": "7ff8ff", "metal": 0.9, "req": "levels", "n": 1 },
+	{ "name": "Carbon",    "body": "2a2f38", "dark": "111418", "accent": "2fe8ff", "metal": 0.4, "req": "ach", "n": 5 },
+	{ "name": "Synthwave", "body": "ff4fd8", "dark": "2a0f4a", "accent": "3cf2ff", "metal": 0.3, "req": "levels", "n": 6 },
+	{ "name": "Gold",      "body": "ffcf3a", "dark": "6a4a10", "accent": "ffffff", "metal": 0.85, "req": "ach", "n": 15 },
+]
+
+static var palette := 0
+
+static func tier_color(t: int) -> Color:
+	return Color(PALETTES[palette].colors[t])
+
+static func req_text(item: Dictionary) -> String:
+	match item.get("req", ""):
+		"ach": return "%d Erfolge" % item.n
+		"levels": return "%d Bauwerk%s geschafft" % [item.n, "" if item.n == 1 else "e"]
+		"prestige": return "%d Reaktor-Neustart" % item.n
+	return ""
+
 const AMMO := [
 	{ "id": "bubble", "name": "Blase",         "color": Color("5fd4ff"), "unlock": "" },
 	{ "id": "fizz",   "name": "Fizz-Granate",  "color": Color("9dff5c"), "unlock": "fizz" },

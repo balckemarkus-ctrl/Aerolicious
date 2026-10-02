@@ -45,7 +45,8 @@ var cores := 0
 var run_earned := 0.0   # seit dem letzten Reaktor-Neustart verdient (für Kerne)
 var shots := 0
 var counters := {}          # Zähler für Erfolge (zerstörte Blöcke, Gold, Explosionen, ...)
-var achieved: Array = []    # freigeschaltete Erfolge (IDs)
+var achieved: Array = []
+var skin_gun := 0    # freigeschaltete Erfolge (IDs)
 var ach_timer := 0.5
 var cluster_bombs: Array = [] # [Position, Restzeit, Farbe]: Teilbomben der Splitterbombe
 var explosions: Array = [] # [Position, Restzeit]: Explosivblöcke zünden kurz versetzt (Kettenreaktion)
@@ -72,6 +73,11 @@ func _init() -> void:
 		if typeof(st) == TYPE_DICTIONARY:
 			slot = clampi(int(st.get("slot", 1)), 1, SLOTS)
 	save_path = "user://save_%d.json" % slot
+	# Blockfarben vor dem Bau des Bauwerks setzen
+	if FileAccess.file_exists(save_path):
+		var d = JSON.parse_string(FileAccess.get_file_as_string(save_path))
+		if typeof(d) == TYPE_DICTIONARY:
+			Config.palette = clampi(int(d.get("skin_palette", 0)), 0, Config.PALETTES.size() - 1)
 
 static func slot_summary(n: int) -> String:
 	var p := "user://save_%d.json" % n
@@ -99,6 +105,8 @@ func _ready() -> void:
 	for arg in args:
 		if arg.begins_with("--showlevel="): # Vorschau eines Bauwerks (Entwicklung)
 			level = int(arg.split("=")[1])
+		if arg.begins_with("--palette="): # Vorschau einer Blockfarben-Palette (Entwicklung)
+			Config.palette = int(arg.split("=")[1])
 	chunk = Chunk.new(World.first_mesh(World.model("block")), level)
 	chunk.block_broken.connect(_on_block_broken)
 	add_child(chunk)
@@ -141,6 +149,8 @@ func _ready() -> void:
 	hud.prestige_pressed.connect(prestige)
 	hud.level_selected.connect(select_level)
 	hud.slot_selected.connect(select_slot)
+	hud.skins_pressed.connect(_show_skins)
+	hud.skin_selected.connect(select_skin)
 	hud.set_slots(slot, range(1, SLOTS + 1).map(slot_summary))
 	hud.achievements_pressed.connect(func(): hud.show_achievements(achieved))
 	hud.continue_pressed.connect(func():
@@ -162,6 +172,7 @@ func _ready() -> void:
 
 	var had_save := false if autotest else load_game()
 	S = Config.stats(up, cores, achieved.size())
+	apply_gun_skin()
 	set_ammo(ammo if unlocked(ammo) else 0)
 	if touch:
 		touch.set_muted(sfx.muted)
@@ -186,6 +197,8 @@ func _ready() -> void:
 		credits = 50000
 		hud.menu.visible = false
 		open_shop()
+	if "--showskins" in args: # Vorschau der Skins (Entwicklung)
+		_show_skins()
 	if "--showach" in args: # Vorschau der Erfolge (Entwicklung)
 		hud.show_achievements(["first_block", "blocks_100", "gold_1", "auto"])
 	if "--leveltest" in args:
@@ -218,7 +231,7 @@ func _prewarm() -> void:
 	fx.set_beam(p - side, p + side, Config.AMMO[2].color)
 	fx.laser(p + Vector3.UP * 0.3, p - Vector3.UP * 0.3, Color("7ff0ff"))
 	shards.spawn(p, 0, 1)
-	debris.spawn(p, Vector3.ZERO, 0, Config.TIERS[0].color, 1.0)
+	debris.spawn(p, Vector3.ZERO, 0, Config.tier_color(0), 1.0)
 	numbers.show_number(p, 10)
 	var drone := World.model("drone")
 	drone.position = p + Vector3.UP * 0.5
@@ -264,7 +277,7 @@ func save_game() -> void:
 		return
 	f.store_string(JSON.stringify({
 		"v": 1, "level": level, "cores": cores, "run_earned": run_earned, "shots": shots, "counters": counters, "achieved": achieved, "unlocked_level": unlocked_level, "chunks": chunks, "chunk": chunk.serialize(), "credits": credits, "earned": earned, "inv": inv, "up": up,
-		"ammo": ammo, "play_time": play_time, "won": won, "player": player.serialize(), "muted": sfx.muted,
+		"ammo": ammo, "play_time": play_time, "won": won, "player": player.serialize(), "muted": sfx.muted, "skin_gun": skin_gun, "skin_palette": Config.palette,
 	}))
 
 func load_game() -> bool:
@@ -287,6 +300,7 @@ func load_game() -> bool:
 	unlocked_level = maxi(int(d.get("unlocked_level", 0)), level)
 	chunks = d.get("chunks", {})
 	achieved = d.get("achieved", [])
+	skin_gun = clampi(int(d.get("skin_gun", 0)), 0, Config.GUN_SKINS.size() - 1)
 	play_time = d.play_time
 	won = d.won
 	if d.get("player") != null:
@@ -390,6 +404,58 @@ func _notification(what: int) -> void:
 		NOTIFICATION_WM_CLOSE_REQUEST:
 			save_game()
 
+# ---------- Skins ----------
+
+func skin_unlocked(item: Dictionary) -> bool:
+	match item.get("req", ""):
+		"ach": return achieved.size() >= item.n
+		"levels": return counters.get("levels", 0) >= item.n
+		"prestige": return counters.get("prestiges", 0) >= item.n
+	return true
+
+func _show_skins() -> void:
+	hud.show_skins(skin_gun, Config.palette, Config.GUN_SKINS.map(skin_unlocked), Config.PALETTES.map(skin_unlocked))
+
+func select_skin(kind: String, i: int) -> void:
+	var item: Dictionary = (Config.GUN_SKINS if kind == "gun" else Config.PALETTES)[i]
+	if not skin_unlocked(item):
+		hud.toast("Noch gesperrt: " + Config.req_text(item))
+		return
+	if kind == "gun":
+		skin_gun = i
+		apply_gun_skin()
+		save_game()
+		_show_skins()
+	else:
+		Config.palette = i
+		save_game()
+		get_tree().reload_current_scene() # Bauwerk mit neuen Farben neu aufbauen
+
+# Lackierung des Blasters: Materialien "Body", "Dark", "Accent" und "Chrome" umfärben
+func apply_gun_skin() -> void:
+	var sk: Dictionary = Config.GUN_SKINS[skin_gun]
+	_paint(gun, sk)
+
+func _paint(n: Node, sk: Dictionary) -> void:
+	if n is MeshInstance3D:
+		for i in n.mesh.get_surface_count():
+			var m: Material = n.mesh.surface_get_material(i)
+			if m == null or not (m.resource_name in ["Body", "Dark", "Accent", "Chrome"]):
+				continue
+			var c := (m as StandardMaterial3D).duplicate() as StandardMaterial3D
+			match m.resource_name:
+				"Body":
+					c.albedo_color = Color(sk.body)
+					c.metallic = sk.metal
+				"Dark":
+					c.albedo_color = Color(sk.dark)
+				"Accent":
+					c.albedo_color = Color(sk.accent)
+					c.emission = Color(sk.accent)
+			n.set_surface_override_material(i, c)
+	for ch in n.get_children():
+		_paint(ch, sk)
+
 # ---------- Munition und Waffe ----------
 
 func set_ammo(i: int) -> void:
@@ -443,7 +509,7 @@ func _on_block_broken(b: int, t: int) -> void:
 		_on_debris_popped(p, t)
 	else:
 		# Der Block fällt erst als Würfel herunter und zerplatzt dann
-		var c: Color = Config.TIERS[t].color
+		var c: Color = Config.tier_color(t)
 		debris.spawn(p, last_dir * 0.6, t, Color("ffcf3a") if chunk.gold[b] else c, chunk.striped(b), chunk.gold[b])
 	if chunk.kind[b] == 1:
 		explosions.append([p, 0.12])
@@ -454,7 +520,7 @@ func _on_block_broken(b: int, t: int) -> void:
 
 func _on_debris_popped(p: Vector3, t: int) -> void:
 	shards.spawn(p, t, Config.TIERS[t].shards)
-	fx.burst(p, Config.TIERS[t].color, 8, 4.0)
+	fx.burst(p, Config.tier_color(t), 8, 4.0)
 
 func _aim_distance(origin: Vector3, dir: Vector3, hits: Array) -> float:
 	var dist: float = hits[0][1] if not hits.is_empty() else 90.0

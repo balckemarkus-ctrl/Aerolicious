@@ -378,7 +378,7 @@ func base_color(b: int) -> Color:
 	var ratio: float = hp[b] / max_hp(b)
 	# Leichte Variation pro Block für den glänzenden Fliesen-Look
 	var v := 0.95 + 0.05 * sin(bi[b] * 12.9 + bj[b] * 78.2 + bk[b] * 37.7)
-	var c: Color = Color("ffcf3a") if gold[b] else (Color("ff9a1a") if kind[b] == 1 else (Config.TIERS[t].color.lightened(0.45) if kind[b] == 2 else Config.TIERS[t].color))
+	var c: Color = Color("ffcf3a") if gold[b] else (Color("ff9a1a") if kind[b] == 1 else (Config.tier_color(t).lightened(0.45) if kind[b] == 2 else Config.tier_color(t)))
 	var f := v * (0.7 + 0.3 * ratio)
 	return Color(c.r * f, c.g * f, c.b * f)
 

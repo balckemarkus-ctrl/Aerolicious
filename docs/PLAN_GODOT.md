@@ -83,9 +83,10 @@ Jedes Modell ist ein Skript in `blender/`, `blender/build_all.sh` exportiert all
 
 ### Phase 6 – Ausbau (Wünsche)
 - Erfolge ✅ (30 Stück, je +1 % Schaden und Perlen; `godot/scripts/achievements.gd`)
-- Mehrere Spielstände
-- Mehr Waffen
-- Skins (Blaster, Blöcke, Halle)
+- Mehrere Spielstände ✅ (3 Plätze)
+- Mehr Waffen ✅ (Bohr-Laser, Splitterbombe; insgesamt 6)
+- Skins ✅ (5 Blaster-Lackierungen, 4 Blockfarben, Freischaltung über Erfolge/Bauwerke/Neustart)
+- Jetpack (Fliegen) ✅, Level-Auswahl ✅, eigener Startbildschirm und App-Icon ✅
 
 ### Später
 - Desktop-Builds (macOS), neuer Trailer

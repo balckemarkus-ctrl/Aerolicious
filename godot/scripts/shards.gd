@@ -48,7 +48,7 @@ func spawn(p: Vector3, t: int, n: int) -> void:
 		tier[i] = t
 		age[i] = 0
 		pull[i] = 0
-		mm.set_instance_color(i, Config.TIERS[t].color)
+		mm.set_instance_color(i, Config.tier_color(t))
 
 func remove(i: int) -> void:
 	count -= 1

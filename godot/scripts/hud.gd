@@ -14,6 +14,8 @@ signal prestige_pressed
 signal achievements_pressed
 signal level_selected(index: int)
 signal slot_selected(n: int)
+signal skins_pressed
+signal skin_selected(kind: String, index: int)
 
 const INK := Color("e6f4ff")        # Schrift: helles Blau-Weiß
 const NEON := Color("2fe8ff")
@@ -79,6 +81,8 @@ var prestige_btn: Button
 var cores_label: Label
 var level_buttons: Array[Button] = []
 var slot_buttons: Array[Button] = []
+var skin_panel: Control
+var skin_box: VBoxContainer
 var ach_panel: Control
 var ach_grid: GridContainer
 var ach_title: Label
@@ -228,6 +232,7 @@ func _init(touch: bool) -> void:
 	_build_shop()
 	_build_win()
 	_build_achievements()
+	_build_skins()
 
 func _build_hud() -> void:
 	var cross := Crosshair.new()
@@ -262,7 +267,7 @@ func _build_hud() -> void:
 	for t in Config.TIERS.size():
 		var l := label("", 16)
 		tier_labels.append(l)
-		var dotl := Ball.new(Config.TIERS[t].color, 15)
+		var dotl := Ball.new(Config.tier_color(t), 15)
 		var h := HBoxContainer.new()
 		h.add_theme_constant_override("separation", 3)
 		h.add_child(dotl)
@@ -405,6 +410,10 @@ func _build_menu() -> void:
 	ach_btn.custom_minimum_size = Vector2(0, 54)
 	ach_btn.pressed.connect(func(): achievements_pressed.emit())
 	left.add_child(ach_btn)
+	var skins_btn := button("Skins", 20, false)
+	skins_btn.custom_minimum_size = Vector2(0, 54)
+	skins_btn.pressed.connect(func(): skins_pressed.emit())
+	left.add_child(skins_btn)
 	prestige_btn = button("Reaktor-Neustart", 18, false)
 	prestige_btn.custom_minimum_size = Vector2(0, 54)
 	prestige_btn.pressed.connect(_on_prestige)
@@ -517,7 +526,7 @@ func _on_prestige() -> void:
 # Spielanzeigen (alles außer den Menüs) ein- oder ausblenden
 func set_hud_visible(v: bool) -> void:
 	for c in root.get_children():
-		if c != menu and c != shop and c != win and c != ach_panel:
+		if c != menu and c != shop and c != win and c != ach_panel and c != skin_panel:
 			c.visible = v
 
 func show_menu(play_text: String, can_reset: bool) -> void:
@@ -675,6 +684,45 @@ func _build_achievements() -> void:
 	ach_grid.add_theme_constant_override("v_separation", 10)
 	scroll.add_child(ach_grid)
 	ach_panel.visible = false
+
+func _build_skins() -> void:
+	skin_panel = _overlay()
+	var box := _centered_panel(skin_panel, 0.92)
+	skin_box = VBoxContainer.new()
+	skin_box.add_theme_constant_override("separation", 10)
+	box.add_child(skin_box)
+	var close := button("Schließen", 20, false)
+	close.custom_minimum_size = Vector2(0, 54)
+	close.pressed.connect(func(): skin_panel.visible = false)
+	box.add_child(close)
+	skin_panel.visible = false
+
+func show_skins(gun: int, pal: int, gun_open: Array, pal_open: Array) -> void:
+	for c in skin_box.get_children():
+		c.queue_free()
+	skin_box.add_child(head("SKINS", 30, NEON))
+	for section in [["Blaster-Lackierung", Config.GUN_SKINS, gun, gun_open, "gun"], ["Blockfarben", Config.PALETTES, pal, pal_open, "palette"]]:
+		skin_box.add_child(caption(section[0]))
+		var row := HBoxContainer.new()
+		row.add_theme_constant_override("separation", 8)
+		var items: Array = section[1]
+		for i in items.size():
+			var it: Dictionary = items[i]
+			var open: bool = section[3][i]
+			var b := button(it.name if open else "%s\n%s" % [it.name, Config.req_text(it)], 15, false)
+			b.custom_minimum_size = Vector2(180, 64)
+			if i == section[2]:
+				var sb := style(6, 1.0, Color("0f2a3a"))
+				sb.border_color = NEON
+				sb.set_border_width_all(2)
+				b.add_theme_stylebox_override("normal", sb)
+			if not open:
+				b.modulate = Color(1, 1, 1, 0.5)
+			var kind: String = section[4]
+			b.pressed.connect(func(): skin_selected.emit(kind, i))
+			row.add_child(b)
+		skin_box.add_child(row)
+	skin_panel.visible = true
 
 func show_achievements(achieved: Array) -> void:
 	ach_title.text = "Erfolge  %d / %d   (+%d %% Schaden und Perlen)" % [achieved.size(), Achievements.LIST.size(), achieved.size()]
