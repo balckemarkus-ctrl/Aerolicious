@@ -13,6 +13,11 @@ npm run build    # Produktions-Build nach dist/
 npm run preview  # Build lokal ansehen
 ```
 
+## Godot-Version (in Arbeit)
+
+Die native Version entsteht in `godot/` (Godot 4.7, Renderer „Mobile“) mit Modellen aus Blender (`blender/`).
+Plan und Fortschritt: `docs/PLAN_GODOT.md`.
+
 ## Android-App (Capacitor)
 
 Die Web-Version wird mit [Capacitor](https://capacitorjs.com) als Android-App verpackt (Ordner `android/`).

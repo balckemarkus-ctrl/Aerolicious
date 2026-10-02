@@ -2,3 +2,4 @@ node_modules/
 dist/
 trailer-build/
 android/.idea/
+build/
