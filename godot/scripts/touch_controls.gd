@@ -52,9 +52,12 @@ func _make_button(text: String, size_: Vector2, font: int, style: StyleBoxFlat) 
 func _ready() -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
-	btn_jump = _make_button("⤒", Vector2(120, 120), 54, glass(60))
-	btn_pause = _make_button("❚❚", Vector2(76, 76), 28, glass(38))
-	btn_mute = _make_button("🔊", Vector2(76, 76), 28, glass(38))
+	btn_jump = _make_button("", Vector2(120, 120), 54, glass(60))
+	btn_pause = _make_button("", Vector2(76, 76), 28, glass(38))
+	btn_mute = _make_button("", Vector2(76, 76), 28, glass(38))
+	btn_jump.add_child(Icon.new("jump"))
+	btn_pause.add_child(Icon.new("pause"))
+	btn_mute.add_child(Icon.new("sound"))
 	var green := glass(40, Color("2fe8ff", 0.9))
 	btn_action = _make_button("", Vector2(250, 84), 28, green)
 	action_label = btn_action.get_child(0)
@@ -80,7 +83,9 @@ func aiming() -> bool:
 	return not lookers.is_empty()
 
 func set_muted(m: bool) -> void:
-	(btn_mute.get_child(0) as Label).text = "🔇" if m else "🔊"
+	var icon := btn_mute.get_child(1) as Icon
+	icon.kind = "mute" if m else "sound"
+	icon.queue_redraw()
 
 func set_action(text: String) -> void:
 	btn_action.visible = text != ""
@@ -168,3 +173,32 @@ func _draw() -> void:
 	var knob := stick_center + (stick_pos - stick_center).limit_length(STICK_RADIUS)
 	draw_circle(knob, 38, Color("2fe8ff", 0.9))
 	draw_circle(knob + Vector2(-9, -10), 14, Color(1, 1, 1, 0.8))
+
+# Gezeichnete Symbole für die Touch-Knöpfe (statt Schriftzeichen/Emojis)
+class Icon extends Control:
+	var kind: String
+	func _init(k: String) -> void:
+		kind = k
+		mouse_filter = Control.MOUSE_FILTER_IGNORE
+		set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	func _draw() -> void:
+		var c := size / 2.0
+		var u := minf(size.x, size.y) / 100.0
+		var col := Color("e6f4ff")
+		var w := 6.0 * u
+		match kind:
+			"jump":
+				draw_polyline(PackedVector2Array([c + Vector2(-20, 6) * u, c + Vector2(0, -14) * u, c + Vector2(20, 6) * u]), col, w, true)
+				draw_line(c + Vector2(-20, 22) * u, c + Vector2(20, 22) * u, col, w, true)
+			"pause":
+				draw_rect(Rect2(c + Vector2(-16, -18) * u, Vector2(10, 36) * u), col)
+				draw_rect(Rect2(c + Vector2(6, -18) * u, Vector2(10, 36) * u), col)
+			"sound", "mute":
+				draw_colored_polygon(PackedVector2Array([c + Vector2(-22, -8) * u, c + Vector2(-12, -8) * u, c + Vector2(2, -20) * u,
+					c + Vector2(2, 20) * u, c + Vector2(-12, 8) * u, c + Vector2(-22, 8) * u]), col)
+				if kind == "sound":
+					draw_arc(c + Vector2(4, 0) * u, 12 * u, -0.9, 0.9, 12, col, 4 * u, true)
+					draw_arc(c + Vector2(4, 0) * u, 21 * u, -0.9, 0.9, 16, col, 4 * u, true)
+				else:
+					draw_line(c + Vector2(10, -10) * u, c + Vector2(26, 10) * u, Color("ff6a6a"), 4.5 * u, true)
+					draw_line(c + Vector2(26, -10) * u, c + Vector2(10, 10) * u, Color("ff6a6a"), 4.5 * u, true)

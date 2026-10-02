@@ -17,6 +17,8 @@ func _ready() -> void:
 		l.pixel_size = 0.0011
 		l.font_size = 46
 		l.outline_size = 14
+		Hud.load_fonts()
+		l.font = Hud.font_head
 		l.modulate = Color.WHITE
 		l.outline_modulate = Color(0.05, 0.15, 0.3, 0.85)
 		l.visible = false

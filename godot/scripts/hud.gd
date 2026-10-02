@@ -17,6 +17,32 @@ signal level_selected(index: int)
 const INK := Color("e6f4ff")        # Schrift: helles Blau-Weiß
 const NEON := Color("2fe8ff")
 const PEARL := Color("8dffb0")
+const MUTED := Color("8ea3bd")
+
+static var font_body: FontVariation
+static var font_head: FontVariation
+
+# Schriften: Inter für Text, Exo 2 für Überschriften und Zahlen (beide SIL Open Font License)
+static func load_fonts() -> void:
+	if font_body:
+		return
+	font_body = FontVariation.new()
+	font_body.base_font = load("res://assets/fonts/Inter.ttf")
+	var ts := TextServerManager.get_primary_interface()
+	font_body.variation_opentype = { ts.name_to_tag("wght"): 500 }
+	font_head = FontVariation.new()
+	font_head.base_font = load("res://assets/fonts/Exo2.ttf")
+	font_head.variation_opentype = { ts.name_to_tag("wght"): 750 }
+
+static func head(text: String, size: int, color := Color.WHITE) -> Label:
+	var l := label(text, size, color)
+	l.add_theme_font_override("font", font_head)
+	return l
+
+# Kleine Überschrift in Großbuchstaben (Abschnittstitel)
+static func caption(text: String, color := MUTED) -> Label:
+	var l := head(text.to_upper(), 14, color)
+	return l
 
 var touch_mode := false
 var root: Control
@@ -62,13 +88,14 @@ var cont_btn: Button
 
 # ---------- Bausteine ----------
 
-static func style(radius := 14, alpha := 0.72, bg := Color("0b1220")) -> StyleBoxFlat:
+static func style(radius := 6, alpha := 0.84, bg := Color("0a111c")) -> StyleBoxFlat:
+	radius = mini(radius, 8)
 	var sb := StyleBoxFlat.new()
 	sb.bg_color = Color(bg, alpha)
 	sb.set_corner_radius_all(radius)
-	sb.border_color = Color(NEON, 0.55)
-	sb.set_border_width_all(2)
-	sb.shadow_color = Color(0.1, 0.8, 1.0, 0.18)
+	sb.border_color = Color(NEON, 0.28)
+	sb.set_border_width_all(1)
+	sb.shadow_color = Color(0, 0, 0, 0.35)
 	sb.shadow_size = 10
 	sb.content_margin_left = 18
 	sb.content_margin_right = 18
@@ -88,19 +115,27 @@ static func button(text: String, size: int, green := true) -> Button:
 	var b := Button.new()
 	b.text = text
 	b.add_theme_font_size_override("font_size", size)
+	b.add_theme_font_override("font", font_head)
 	var fg := Color("06121f") if green else INK
 	for c in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color"]:
 		b.add_theme_color_override(c, fg)
 	b.add_theme_color_override("font_disabled_color", Color(fg, 0.5))
 	for st in ["normal", "hover", "pressed", "focus", "disabled"]:
-		var bg := NEON if green else Color("1c2a3e")
+		var bg := NEON if green else Color("13202f")
+		if st == "hover":
+			bg = bg.lightened(0.12)
 		if st == "pressed":
-			bg = bg.darkened(0.15)
+			bg = bg.darkened(0.18)
 		if st == "disabled":
-			bg = Color("33404f")
-		var sb := style(40, 0.95, bg)
-		sb.content_margin_left = 26
-		sb.content_margin_right = 26
+			bg = Color("1a2330")
+		var sb := style(6, 1.0 if green else 0.9, bg)
+		if not green:
+			sb.border_color = Color(NEON, 0.55 if st == "hover" else 0.3)
+		if st == "focus":
+			sb.draw_center = false
+			sb.border_color = Color(NEON, 0.0)
+		sb.content_margin_left = 22
+		sb.content_margin_right = 22
 		b.add_theme_stylebox_override(st, sb)
 	return b
 
@@ -177,7 +212,12 @@ func _title(text: String) -> Label:
 
 func _init(touch: bool) -> void:
 	touch_mode = touch
+	load_fonts()
 	root = Control.new()
+	var theme := Theme.new()
+	theme.default_font = font_body
+	theme.default_font_size = 18
+	root.theme = theme
 	root.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	root.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(root)
@@ -323,67 +363,96 @@ func _build_hud() -> void:
 		root.add_child(hint)
 
 func _build_menu() -> void:
-	menu = _overlay()
-	var box := _centered_panel(menu)
-	box.add_child(_title("Wonder Wreckers"))
-	var sub := label("Ein entspannter Block-Breaker auf einer sonnigen Insel.", 22)
-	sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	box.add_child(sub)
-	var how := label(
-		"Zerlege fünf Bauwerke aus bunten Blöcken · Sammle die Splitter ein\n"
-		+ "Tausche sie am Konverter gegen Perlen · Kaufe im Shop Upgrades, Munition und Drohnen\n"
-		+ "Panzerblöcke (gestreift) halten mehr aus · Goldblöcke bringen Perlen\n"
-		+ "Explosivblöcke sprengen ihre Nachbarn · Kristallblöcke geben dreifache Splitter", 18)
-	how.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	box.add_child(how)
-	var keys := label(
-		"Links: Stick zum Laufen (ganz raus = rennen) · Rechts: Daumen auflegen = zielen und feuern\n"
-		+ "⤒ springen · Munition unten antippen · ❚❚ Pause · Auto-Zielsystem gibt es im Shop"
-		if touch_mode else
-		"W A S D laufen · Shift rennen · Leertaste springen · Maus zielen · Klick schießen\n"
-		+ "E interagieren · 1–4 / Mausrad Munition · Esc Pause", 17)
-	keys.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	keys.add_theme_color_override("font_color", NEON)
-	box.add_child(keys)
-	# Level-Auswahl
-	var lrow := HBoxContainer.new()
-	lrow.alignment = BoxContainer.ALIGNMENT_CENTER
-	lrow.add_theme_constant_override("separation", 8)
-	for i in Config.LEVELS.size():
-		var lb := button("", 16, false)
-		lb.custom_minimum_size = Vector2(150, 52)
-		lb.pressed.connect(func(): level_selected.emit(i))
-		lrow.add_child(lb)
-		level_buttons.append(lb)
-	box.add_child(lrow)
-	var row := HBoxContainer.new()
-	row.alignment = BoxContainer.ALIGNMENT_CENTER
-	row.add_theme_constant_override("separation", 16)
-	play_btn = button("Spielen", 30)
-	play_btn.custom_minimum_size = Vector2(260, 72)
+	# Hauptmenü in zwei Spalten: links Titel und Aktionen, rechts Bauwerk-Auswahl und Steuerung
+	menu = Control.new()
+	menu.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	root.add_child(menu)
+	var shade := ColorRect.new()
+	shade.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	shade.color = Color(0.01, 0.02, 0.05, 0.72)
+	menu.add_child(shade)
+	var accent := ColorRect.new() # schmale Neonlinie links
+	accent.color = NEON
+	accent.position = Vector2(48, 64)
+	accent.size = Vector2(3, 120)
+	menu.add_child(accent)
+	var margin := MarginContainer.new()
+	margin.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	for side in ["left", "right", "top", "bottom"]:
+		margin.add_theme_constant_override("margin_" + side, 64 if side == "left" else 44)
+	menu.add_child(margin)
+	var cols := HBoxContainer.new()
+	cols.add_theme_constant_override("separation", 48)
+	margin.add_child(cols)
+
+	var left := VBoxContainer.new()
+	left.custom_minimum_size = Vector2(420, 0)
+	left.add_theme_constant_override("separation", 10)
+	cols.add_child(left)
+	left.add_child(head("WONDER", 64))
+	left.add_child(head("WRECKERS", 64, NEON))
+	left.add_child(caption("Abriss-Simulator · Incremental"))
+	var gap := Control.new()
+	gap.custom_minimum_size = Vector2(0, 26)
+	left.add_child(gap)
+	play_btn = button("Spielen", 26)
+	play_btn.custom_minimum_size = Vector2(0, 66)
 	play_btn.pressed.connect(func(): play_pressed.emit())
-	row.add_child(play_btn)
-	reset_btn = button("Neues Spiel", 22, false)
-	reset_btn.custom_minimum_size = Vector2(220, 72)
+	left.add_child(play_btn)
+	var ach_btn := button("Erfolge", 20, false)
+	ach_btn.custom_minimum_size = Vector2(0, 54)
+	ach_btn.pressed.connect(func(): achievements_pressed.emit())
+	left.add_child(ach_btn)
+	prestige_btn = button("Reaktor-Neustart", 18, false)
+	prestige_btn.custom_minimum_size = Vector2(0, 54)
+	prestige_btn.pressed.connect(_on_prestige)
+	left.add_child(prestige_btn)
+	cores_label = label("", 16, MUTED)
+	left.add_child(cores_label)
+	var spacer := Control.new()
+	spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	left.add_child(spacer)
+	reset_btn = button("Neues Spiel", 16, false)
+	reset_btn.custom_minimum_size = Vector2(0, 46)
 	reset_btn.visible = false
 	reset_btn.pressed.connect(_on_reset)
-	row.add_child(reset_btn)
-	box.add_child(row)
-	cores_label = label("", 18, NEON)
-	cores_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	box.add_child(cores_label)
-	var prow := CenterContainer.new()
-	prestige_btn = button("Reaktor-Neustart", 20, false)
-	prestige_btn.custom_minimum_size = Vector2(420, 60)
-	prestige_btn.pressed.connect(_on_prestige)
-	prow.add_child(prestige_btn)
-	box.add_child(prow)
-	var arow := CenterContainer.new()
-	var ach_btn := button("🏆 Erfolge", 20, false)
-	ach_btn.custom_minimum_size = Vector2(260, 56)
-	ach_btn.pressed.connect(func(): achievements_pressed.emit())
-	arow.add_child(ach_btn)
-	box.add_child(arow)
+	left.add_child(reset_btn)
+
+	var right := VBoxContainer.new()
+	right.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	right.add_theme_constant_override("separation", 12)
+	cols.add_child(right)
+	right.add_child(caption("Bauwerke"))
+	var scroll := ScrollContainer.new()
+	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	scroll.scroll_deadzone = 12
+	right.add_child(scroll)
+	var grid := GridContainer.new()
+	grid.columns = 3
+	grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	grid.mouse_filter = Control.MOUSE_FILTER_PASS
+	grid.add_theme_constant_override("h_separation", 8)
+	grid.add_theme_constant_override("v_separation", 8)
+	scroll.add_child(grid)
+	for i in Config.LEVELS.size():
+		var lb := button("", 16, false)
+		lb.custom_minimum_size = Vector2(0, 58)
+		lb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		lb.alignment = HORIZONTAL_ALIGNMENT_LEFT
+		lb.mouse_filter = Control.MOUSE_FILTER_PASS
+		lb.pressed.connect(func(): level_selected.emit(i))
+		grid.add_child(lb)
+		level_buttons.append(lb)
+	right.add_child(caption("Steuerung"))
+	var keys := label(
+		"Linke Seite: Stick zum Laufen, ganz ausgelenkt rennen.  Rechte Seite: Daumen auflegen zum Zielen und Feuern.\n"
+		+ "Sprung-Taste gedrückt halten fliegt mit Jetpack.  Munition unten antippen.  Am Konverter Splitter gegen Perlen tauschen."
+		if touch_mode else
+		"W A S D laufen, Shift rennen, Leertaste springen (mit Jetpack halten zum Fliegen).\n"
+		+ "Maus zielen, Klick schießen, E interagieren, 1 bis 4 oder Mausrad Munition, M Ton, Esc Pause.", 15, MUTED)
+	keys.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	right.add_child(keys)
 
 func _on_reset() -> void:
 	# Zweimal tippen zum Bestätigen (keine System-Dialoge nötig)
@@ -397,9 +466,13 @@ func set_levels(current: int, unlocked: int) -> void:
 	for i in level_buttons.size():
 		var b := level_buttons[i]
 		var open := i <= unlocked
-		b.text = ("%d · %s" % [i + 1, Config.LEVELS[i].name]) if open else "%d · 🔒" % (i + 1)
+		b.text = "%02d   %s" % [i + 1, Config.LEVELS[i].name if open else "Gesperrt"]
 		b.disabled = not open
-		b.add_theme_stylebox_override("normal", style(40, 0.95, Color("ff2fc8") if i == current else Color("1c2a3e")))
+		if i == current:
+			var sb := style(6, 1.0, Color("0f2a3a"))
+			sb.border_color = NEON
+			sb.set_border_width_all(2)
+			b.add_theme_stylebox_override("normal", sb)
 
 var prestige_armed := false
 var _prestige_gain := 0
@@ -407,7 +480,7 @@ var _prestige_gain := 0
 func set_prestige(cores: int, gain: int) -> void:
 	_prestige_gain = gain
 	prestige_armed = false
-	cores_label.text = "⚛️ Kerne: %d  (Schaden und Perlen +%d %%)" % [cores, cores * 10]
+	cores_label.text = "Kerne: %d  (Schaden und Perlen +%d %%)" % [cores, cores * 10]
 	prestige_btn.text = "Reaktor-Neustart: +%d Kerne" % gain
 	prestige_btn.disabled = gain <= 0
 	prestige_btn.visible = gain > 0 or cores > 0
@@ -420,7 +493,14 @@ func _on_prestige() -> void:
 		return
 	prestige_pressed.emit()
 
+# Spielanzeigen (alles außer den Menüs) ein- oder ausblenden
+func set_hud_visible(v: bool) -> void:
+	for c in root.get_children():
+		if c != menu and c != shop and c != win and c != ach_panel:
+			c.visible = v
+
 func show_menu(play_text: String, can_reset: bool) -> void:
+	set_hud_visible(false)
 	play_btn.text = play_text
 	reset_btn.visible = can_reset
 	reset_btn.text = "Neues Spiel"
@@ -521,7 +601,7 @@ func render_shop(credits: float, up: Dictionary) -> void:
 		cv.mouse_filter = Control.MOUSE_FILTER_PASS
 		cv.add_theme_constant_override("separation", 4)
 		card.add_child(cv)
-		cv.add_child(label("%s  %s" % [u.icon, u.name], 21))
+		cv.add_child(head(u.name, 21))
 		var d := label(u.desc, 16)
 		d.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		d.add_theme_color_override("font_color", Color(INK, 0.8))
@@ -576,7 +656,7 @@ func _build_achievements() -> void:
 	ach_panel.visible = false
 
 func show_achievements(achieved: Array) -> void:
-	ach_title.text = "🏆 Erfolge  %d / %d   (+%d %% Schaden und Perlen)" % [achieved.size(), Achievements.LIST.size(), achieved.size()]
+	ach_title.text = "Erfolge  %d / %d   (+%d %% Schaden und Perlen)" % [achieved.size(), Achievements.LIST.size(), achieved.size()]
 	for c in ach_grid.get_children():
 		c.queue_free()
 	for a in Achievements.LIST:
@@ -590,7 +670,7 @@ func show_achievements(achieved: Array) -> void:
 		card.mouse_filter = Control.MOUSE_FILTER_PASS
 		var cv := VBoxContainer.new()
 		cv.mouse_filter = Control.MOUSE_FILTER_PASS
-		cv.add_child(label("%s  %s" % [a.icon if done else "🔒", a.name], 20, Color("ffc94a") if done else INK))
+		cv.add_child(head(a.name, 20, Color("ffc94a") if done else INK))
 		var d := label(a.desc, 15)
 		d.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		d.add_theme_color_override("font_color", Color(INK, 0.75))
@@ -670,7 +750,7 @@ func render_ammo(current: int, unlocked: Array) -> void:
 		slot.add_theme_stylebox_override("panel", sb)
 		slot.modulate = Color.WHITE if unlocked[i] else Color(1, 1, 1, 0.45)
 		var name_label := slot.get_child(0).get_child(2) as Label
-		name_label.text = Config.AMMO[i].name if unlocked[i] else "🔒"
+		name_label.text = Config.AMMO[i].name if unlocked[i] else "Gesperrt"
 
 func _on_slot_input(e: InputEvent, i: int) -> void:
 	if e is InputEventMouseButton and e.pressed and e.button_index == MOUSE_BUTTON_LEFT:

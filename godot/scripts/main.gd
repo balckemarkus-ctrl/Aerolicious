@@ -146,6 +146,12 @@ func _ready() -> void:
 		hud.menu.visible = false
 		player.pos = Vector3(0, 0, 44)
 		player.pitch = 0.22
+	if "--showshop" in args: # Vorschau des Shops (Entwicklung)
+		credits = 50000
+		hud.menu.visible = false
+		open_shop()
+	if "--showach" in args: # Vorschau der Erfolge (Entwicklung)
+		hud.show_achievements(["first_block", "blocks_100", "gold_1", "auto"])
 	if "--leveltest" in args:
 		_level_test()
 
@@ -284,6 +290,7 @@ func resume() -> void:
 	playing = true
 	started = true
 	hud.menu.visible = false
+	hud.set_hud_visible(true)
 	if touch_mode:
 		player.touch_active = true
 	else:
@@ -363,7 +370,7 @@ func toggle_mute() -> void:
 	var m := sfx.toggle_mute()
 	if touch:
 		touch.set_muted(m)
-	hud.toast("🔇 Ton aus" if m else "🔊 Ton an")
+	hud.toast("Ton aus" if m else "Ton an")
 	save_game()
 
 func hit_block(b: int, dmg: float) -> void:
@@ -394,7 +401,7 @@ func _on_block_broken(b: int, t: int) -> void:
 		earn(bonus)
 		fx.ring(p, Color("ffcf3a"), 3.0)
 		fx.burst(p, Color("ffcf3a"), 30, 7.0)
-		hud.toast("✨ Goldblock! +%s Perlen" % Hud.fmt(bonus))
+		hud.toast("Goldblock! +%s Perlen" % Hud.fmt(bonus))
 		sfx.play("buy")
 	if debris.full():
 		_on_debris_popped(p, t)
@@ -533,7 +540,7 @@ func can_collect(_tier: int) -> bool:
 		return true
 	if time - last_full_toast > 5.0:
 		last_full_toast = time
-		hud.toast("🎒 Rucksack voll! Ab zum Konverter.")
+		hud.toast("Rucksack voll! Ab zum Konverter.")
 		count("full_bag")
 	return false
 
@@ -559,7 +566,7 @@ func recycle() -> void:
 	sfx.play("recycle")
 	fx.burst(World.RECYCLER_POS + Vector3(0, 3, 0), Color("8bffb0"), 30, 6.0)
 	fx.ring(World.RECYCLER_POS + Vector3(0, 2, 0), Color("8bffb0"), 3.0)
-	hud.toast("💧 %d Splitter eingetauscht: +%s Perlen" % [count, Hud.fmt(v)])
+	hud.toast("%d Splitter eingetauscht: +%s Perlen" % [count, Hud.fmt(v)])
 	save_game()
 
 func buy(id: String, amount := 1) -> void:
@@ -642,9 +649,9 @@ func _update_prompt() -> void:
 	if touch:
 		var label := ""
 		if nearby == "recycler":
-			label = "💧 Eintauschen (%s)" % Hud.fmt(bag_count())
+			label = "Eintauschen (%s)" % Hud.fmt(bag_count())
 		elif nearby == "shop":
-			label = "🛒 Shop"
+			label = "Shop"
 		touch.set_action("" if shop_open else label)
 
 func _update_explosions(dt: float) -> void:
@@ -668,7 +675,7 @@ func _check_achievements() -> void:
 			continue
 		achieved.append(a.id)
 		S = Config.stats(up, cores, achieved.size())
-		hud.toast("🏆 Erfolg: %s  (+1 %% Schaden und Perlen)" % a.name)
+		hud.toast("Erfolg: %s  (+1 %% Schaden und Perlen)" % a.name)
 		sfx.play("buy", 1.25)
 
 func _check_win() -> void:
@@ -680,7 +687,7 @@ func _check_win() -> void:
 	unlocked_level = maxi(unlocked_level, mini(level + 1, Config.LEVELS.size() - 1))
 	cores += Config.LEVELS[level].cores
 	S = Config.stats(up, cores, achieved.size())
-	hud.toast("⚛️ Bauwerk geschafft: +%d Kerne (dauerhaft +10 %% je Kern)" % Config.LEVELS[level].cores)
+	hud.toast("Bauwerk geschafft: +%d Kerne (dauerhaft +10 %% je Kern)" % Config.LEVELS[level].cores)
 	sfx.play("win")
 	save_game()
 	await get_tree().create_timer(1.5).timeout
