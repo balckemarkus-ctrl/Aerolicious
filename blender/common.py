@@ -127,10 +127,15 @@ def torus(name, major=1.0, minor=0.1, loc=(0, 0, 0), rot=(0, 0, 0), material=Non
     return _finish(bpy.context.object, name, material, 180)
 
 
-def text(name, body, size=0.5, depth=0.04, loc=(0, 0, 0), rot=(0, 0, 0), material=None):
+FONT_HEAD = os.path.join(ROOT, 'godot', 'assets', 'fonts', 'Exo2.ttf')
+
+
+def text(name, body, size=0.5, depth=0.04, loc=(0, 0, 0), rot=(0, 0, 0), material=None, font=None):
     bpy.ops.object.text_add(location=loc, rotation=rot)
     o = bpy.context.object
     o.data.body = body
+    if font:
+        o.data.font = bpy.data.fonts.load(font, check_existing=True)
     o.data.size = size
     o.data.extrude = depth
     o.data.bevel_depth = depth * 0.4

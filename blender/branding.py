@@ -64,11 +64,11 @@ for i, (x, y, z) in enumerate(stack):
     neon_block(f'S{i}', TIERS[i % 5], (x, y + 1.5, z + 0.5), rot=random.uniform(-0.15, 0.15))
 for i in range(14):
     a = random.uniform(0, 6.28)
-    neon_block(f'F{i}', TIERS[i % 5], (math.cos(a) * random.uniform(3.5, 7), 1.5 + math.sin(a) * random.uniform(2, 5), random.uniform(0.2, 4.5)),
+    neon_block(f'F{i}', TIERS[i % 5], (math.cos(a) * random.uniform(3.5, 7), 1.5 + math.sin(a) * random.uniform(2, 5), random.uniform(0.2, 2.6)),  # unterhalb der Schrift
                rot=random.uniform(0, 6), size=random.uniform(0.25, 0.5))
-title = text('Title', 'WONDER WRECKERS', size=0.9, depth=0.12, loc=(0, -1.2, 4.45), rot=(math.pi / 2, 0, 0),
+title = text('Title', 'WONDER WRECKERS', size=0.95, depth=0.05, font=FONT_HEAD, loc=(0, -1.2, 4.45), rot=(math.pi / 2, 0, 0),
              material=mat('Title', '#ff7ad9', rough=0.2, emission='#ff2fc8', emission_strength=2.2))
-sub = text('Sub', 'Blöcke zerlegen · Splitter sammeln · aufrüsten', size=0.3, depth=0.02, loc=(0, -1.2, 3.75), rot=(math.pi / 2, 0, 0),
+sub = text('Sub', 'BLÖCKE ZERLEGEN  ·  SPLITTER SAMMELN  ·  AUFRÜSTEN', size=0.24, depth=0.01, font=FONT_HEAD, loc=(0, -1.2, 3.75), rot=(math.pi / 2, 0, 0),
            material=mat('Sub', '#7ff8ff', emission='#2fe8ff', emission_strength=1.6))
 light(900, (0, -8, 9))
 light(400, (-6, -2, 3), '#ff7ad9')

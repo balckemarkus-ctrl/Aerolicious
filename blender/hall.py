@@ -105,7 +105,7 @@ for i, (fx, fy) in enumerate(((-20, -20), (20, -20), (-20, 20), (20, 20))):
     parent(ring, hall)
 
 # Neon-Schriftzug an der Rückwand
-sign = text('Sign', 'WONDER WRECKERS', size=3.4, depth=0.25, loc=(0, -H + 0.2, 17.5), rot=(math.pi / 2, 0, 0), material=pink)
+sign = text('Sign', 'WONDER WRECKERS', size=3.4, depth=0.25, font=FONT_HEAD, loc=(0, -H + 0.2, 17.5), rot=(math.pi / 2, 0, 0), material=pink)
 parent(sign, hall)
 frame = cube('SignFrame', size=(42, 0.3, 7.0), loc=(0, -H + 0.05, 17.5), material=dark, bevel_w=0.2)
 parent(frame, hall)
