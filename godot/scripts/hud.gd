@@ -461,7 +461,7 @@ func _build_menu() -> void:
 		+ "Sprung-Taste gedrückt halten fliegt mit Jetpack.  Munition unten antippen.  Am Konverter Splitter gegen Perlen tauschen."
 		if touch_mode else
 		"W A S D laufen, Shift rennen, Leertaste springen (mit Jetpack halten zum Fliegen).\n"
-		+ "Maus zielen, Klick schießen, E interagieren, 1 bis 4 oder Mausrad Munition, M Ton, Esc Pause.", 15, MUTED)
+		+ "Maus zielen, Klick schießen, E interagieren, 1 bis 6 oder Mausrad Waffe, M Ton, Esc Pause.", 15, MUTED)
 	keys.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	right.add_child(keys)
 

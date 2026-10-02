@@ -39,6 +39,8 @@ const AMMO := [
 	{ "id": "fizz",   "name": "Fizz-Granate",  "color": Color("9dff5c"), "unlock": "fizz" },
 	{ "id": "beam",   "name": "Prisma-Strahl", "color": Color("ff7ad9"), "unlock": "beam" },
 	{ "id": "nova",   "name": "Super-Nova",     "color": Color("ffc94a"), "unlock": "nova" },
+	{ "id": "drill",  "name": "Bohr-Laser",     "color": Color("ff5a5a"), "unlock": "drill" },
+	{ "id": "cluster","name": "Splitterbombe",  "color": Color("b18cff"), "unlock": "cluster" },
 ]
 
 const TABS := ["Waffe", "Sammeln", "Drohnen"]
@@ -58,6 +60,10 @@ const UPGRADES := [
 	{ "id": "beamPower", "tab": 0, "icon": "🔷", "name": "Prisma-Fokus",        "desc": "+15 % Strahlschaden, trifft tiefer",        "base": 9000,   "growth": 1.25, "max": 30, "needs": "beam" },
 	{ "id": "nova",      "tab": 0, "icon": "☀️", "name": "Super-Nova",           "desc": "Neue Munition: riesige Explosion [4]",      "base": 60000,  "growth": 1.0,  "max": 1 },
 	{ "id": "novaCool",  "tab": 0, "icon": "⏱️", "name": "Nova-Ladezeit",       "desc": "−5 % Ladezeit und +10 % Schaden der Nova",  "base": 90000,  "growth": 1.3,  "max": 20, "needs": "nova" },
+	{ "id": "drill",     "tab": 0, "name": "Bohr-Laser",          "icon": "", "desc": "Neue Waffe: Dauerlaser ohne Flugzeit, bohrt 2 Blöcke tief [5]", "base": 25000, "growth": 1.0, "max": 1 },
+	{ "id": "drillPower","tab": 0, "name": "Laser-Fokus",         "icon": "", "desc": "+15 % Laserschaden, bohrt tiefer",            "base": 35000,  "growth": 1.27, "max": 30, "needs": "drill" },
+	{ "id": "cluster",   "tab": 0, "name": "Splitterbombe",       "icon": "", "desc": "Neue Waffe: zerplatzt in 6 Teilbomben [6]", "base": 300000, "growth": 1.0, "max": 1 },
+	{ "id": "clusterPower","tab": 0, "name": "Mehr Teilbomben",   "icon": "", "desc": "+1 Teilbombe und +10 % Schaden je Stufe",  "base": 450000, "growth": 1.32, "max": 10, "needs": "cluster" },
 	# Sammeln
 	{ "id": "value",     "tab": 1, "icon": "💎", "name": "Splitter-Wert",       "desc": "+10 % Perlen je Stufe, ×2 alle 25 Stufen",  "base": 20,     "growth": 1.18, "max": 150 },
 	{ "id": "multi",     "tab": 1, "icon": "✌️", "name": "Doppelsplitter",      "desc": "+3 % Chance auf doppelte Splitter",         "base": 150,    "growth": 1.3,  "max": 25 },
@@ -122,6 +128,9 @@ static func stats(up: Dictionary, cores := 0, ach := 0) -> Dictionary:
 		"beam_power": 1.0 + 0.15 * l.call("beamPower"),
 		"nova_cool": 2.5 * pow(0.95, l.call("novaCool")),
 		"nova_power": 1.0 + 0.1 * l.call("novaCool"),
+		"drill_power": 1.0 + 0.15 * l.call("drillPower"),
+		"cluster_count": 6 + l.call("clusterPower"),
+		"cluster_power": 1.0 + 0.1 * l.call("clusterPower"),
 		"value_mult": (1.0 + 0.1 * l.call("value")) * milestone.call("value") * cm,
 		"multi": 0.03 * l.call("multi"),
 		"magnet": 3.0 + 0.8 * l.call("magnet"),

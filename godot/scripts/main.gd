@@ -47,6 +47,7 @@ var shots := 0
 var counters := {}          # Zähler für Erfolge (zerstörte Blöcke, Gold, Explosionen, ...)
 var achieved: Array = []    # freigeschaltete Erfolge (IDs)
 var ach_timer := 0.5
+var cluster_bombs: Array = [] # [Position, Restzeit, Farbe]: Teilbomben der Splitterbombe
 var explosions: Array = [] # [Position, Restzeit]: Explosivblöcke zünden kurz versetzt (Kettenreaktion)
 var S := Config.stats({}, 0)
 
@@ -357,7 +358,7 @@ func _unhandled_input(e: InputEvent) -> void:
 				interact()
 			KEY_M:
 				toggle_mute()
-			KEY_1, KEY_2, KEY_3, KEY_4:
+			KEY_1, KEY_2, KEY_3, KEY_4, KEY_5, KEY_6:
 				set_ammo(e.physical_keycode - KEY_1)
 	elif e is InputEventMouseButton and e.pressed and not touch_mode:
 		if playing and Input.mouse_mode != Input.MOUSE_MODE_CAPTURED:
@@ -494,13 +495,26 @@ func _update_weapon(dt: float) -> void:
 	fx.hide_beam()
 	if not firing or cooldown > 0:
 		return
+	if a.id == "drill":
+		# Bohr-Laser: sofortiger Treffer ohne Geschoss, sehr hohe Feuerrate
+		cooldown = 1.0 / (S.fire_rate * 2.2)
+		var hits := chunk.raycast(origin, dir, 150, 2 + int(S.drill_power))
+		fx.laser(mz, origin + dir * _aim_distance(origin, dir, hits), a.color)
+		for i in hits.size():
+			hit_block(hits[i][0], S.damage * 0.6 * S.drill_power * (1.0 if i == 0 else 0.6))
+		gun_kick = maxf(gun_kick, 0.35)
+		shots += 1
+		if shots % 3 == 0:
+			sfx.beam_hum()
+		return
 
 	match a.id:
 		"nova": cooldown = S.nova_cool
 		"fizz": cooldown = 1.0 / (S.fire_rate * 0.45)
+		"cluster": cooldown = 1.6
 		_: cooldown = 1.0 / S.fire_rate
 	var target := origin + dir * _aim_distance(origin, dir, aim)
-	var size := 3.0 if a.id == "nova" else 1.6 if a.id == "fizz" else 1.0
+	var size := 3.0 if a.id == "nova" else (1.6 if a.id in ["fizz", "cluster"] else 1.0)
 	gun_kick = 1.6 if a.id == "nova" else 1.0
 	sfx.shoot(a.id)
 	shots += 1
@@ -520,6 +534,13 @@ func _on_impact(p: Vector3, id: String, dir: Vector3, color: Color) -> void:
 			numbers.show_number(c, S.damage * 12.0 * S.fizz_power)
 			fx.ring(c, color, 2.2)
 			fx.burst(c, color, 10, 5.0)
+		"cluster":
+			var c := p + dir * 0.5
+			chunk.damage_sphere(c, 1.5, S.damage * 2.0 * S.cluster_power)
+			fx.ring(c, color, 1.8)
+			for n in S.cluster_count: # Teilbomben ringsum, kurz versetzt
+				var off := Vector3(randf_range(-3, 3), randf_range(-2, 2.5), randf_range(-3, 3))
+				cluster_bombs.append([c + off, 0.15 + n * 0.06, color])
 		"nova":
 			var c := p + dir * 0.8
 			chunk.damage_sphere(c, 4.2, S.damage * 5 * S.nova_power)
@@ -689,6 +710,19 @@ func _update_prompt() -> void:
 			label = "Shop"
 		touch.set_action("" if shop_open else label)
 
+func _update_cluster(dt: float) -> void:
+	for i in range(cluster_bombs.size() - 1, -1, -1):
+		cluster_bombs[i][1] -= dt
+		if cluster_bombs[i][1] > 0:
+			continue
+		var p: Vector3 = cluster_bombs[i][0]
+		var col: Color = cluster_bombs[i][2]
+		cluster_bombs.remove_at(i)
+		chunk.damage_sphere(p, 1.3, S.damage * 1.4 * S.cluster_power)
+		fx.ring(p, col, 1.5)
+		fx.burst(p, col, 8, 5.0)
+		sfx.play("shoot_fizz", randf_range(1.1, 1.4))
+
 func _update_explosions(dt: float) -> void:
 	for i in range(explosions.size() - 1, -1, -1):
 		explosions[i][1] -= dt
@@ -745,6 +779,7 @@ func _process(delta: float) -> void:
 	_update_weapon(dt)
 	_update_drones(time, dt)
 	_update_explosions(dt)
+	_update_cluster(dt)
 	ach_timer -= dt
 	if ach_timer <= 0:
 		ach_timer = 0.5
@@ -813,6 +848,19 @@ func _start_autotest() -> void:
 	a0 = chunk.alive_count
 	await get_tree().create_timer(3.0).timeout
 	print("AUTOTEST nova (ammo=%d): broke %d" % [ammo, a0 - chunk.alive_count])
+	buy("drill")
+	player.pos = Vector3(14, 0, 0)
+	player.yaw = PI / 2
+	a0 = chunk.alive_count
+	await get_tree().create_timer(3.0).timeout
+	print("AUTOTEST bohr-laser (ammo=%d): broke %d" % [ammo, a0 - chunk.alive_count])
+	credits += 1e7
+	buy("cluster")
+	player.pos = Vector3(-14, 0, 0)
+	player.yaw = -PI / 2
+	a0 = chunk.alive_count
+	await get_tree().create_timer(3.0).timeout
+	print("AUTOTEST splitterbombe (ammo=%d): broke %d" % [ammo, a0 - chunk.alive_count])
 	buy("drones"); buy("drones"); buy("drones")
 	player.pos = Vector3(0, 0, 30)
 	a0 = chunk.alive_count

@@ -21,7 +21,7 @@ const LIST := [
 	{ "id": "pearls_1m",    "icon": "💎", "name": "Perlenkönig",            "desc": "Verdiene insgesamt 1 Million Perlen." },
 	{ "id": "pearls_1b",    "icon": "🏦", "name": "Perlenimperium",         "desc": "Verdiene insgesamt 1 Milliarde Perlen." },
 	{ "id": "auto",         "icon": "🤖", "name": "Autopilot",              "desc": "Kaufe das Auto-Zielsystem." },
-	{ "id": "ammo_all",     "icon": "🎒", "name": "Arsenal",                "desc": "Schalte alle vier Munitionsarten frei." },
+	{ "id": "ammo_all",     "icon": "🎒", "name": "Arsenal",                "desc": "Schalte alle sechs Waffen frei." },
 	{ "id": "drones_3",     "icon": "🛸", "name": "Schwarm",                "desc": "Besitze 3 Drohnen." },
 	{ "id": "drones_12",    "icon": "🚁", "name": "Drohnenflotte",          "desc": "Besitze 12 Drohnen." },
 	{ "id": "milestone",    "icon": "⭐", "name": "Meilenstein",            "desc": "Bring ein Upgrade auf Stufe 25." },
@@ -58,7 +58,7 @@ static func reached(id: String, g) -> bool:
 		"pearls_1m": return g.earned >= 1e6
 		"pearls_1b": return g.earned >= 1e9
 		"auto": return g.up.get("autoFire", 0) > 0
-		"ammo_all": return g.up.get("fizz", 0) > 0 and g.up.get("beam", 0) > 0 and g.up.get("nova", 0) > 0
+		"ammo_all": return g.up.get("fizz", 0) > 0 and g.up.get("beam", 0) > 0 and g.up.get("nova", 0) > 0 and g.up.get("drill", 0) > 0 and g.up.get("cluster", 0) > 0
 		"drones_3": return g.up.get("drones", 0) >= 3
 		"drones_12": return g.up.get("drones", 0) >= 12
 		"milestone":
