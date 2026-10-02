@@ -19,6 +19,7 @@ var btn_jump: Panel
 var btn_pause: Panel
 var btn_action: Panel
 var action_label: Label
+var tap_targets: Array = [] # [Control, Callable]: antippbare HUD-Elemente (z. B. Munition), auch mit zweitem Finger
 
 static func glass(radius: int, color := Color(1, 1, 1, 0.35)) -> StyleBoxFlat:
 	var sb := StyleBoxFlat.new()
@@ -94,6 +95,13 @@ func _input(e: InputEvent) -> void:
 		return
 	if e is InputEventScreenTouch:
 		if e.pressed:
+			for tt in tap_targets:
+				var c: Control = tt[0]
+				if c.is_visible_in_tree() and c.get_global_rect().has_point(e.position):
+					tt[1].call()
+					held[e.index] = null
+					get_viewport().set_input_as_handled()
+					return
 			var b := _button_at(e.position)
 			if b:
 				held[e.index] = b
@@ -126,8 +134,10 @@ func _release(index: int, p: Vector2) -> void:
 		player.stick = Vector2.ZERO
 	lookers.erase(index)
 	if held.has(index):
-		var b: Panel = held[index]
+		var b = held[index]
 		held.erase(index)
+		if b == null:
+			return
 		b.modulate = Color.WHITE
 		if b == btn_jump:
 			player.jump_held = false

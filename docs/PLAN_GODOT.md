@@ -49,7 +49,7 @@ Jedes Modell ist ein Skript in `blender/`, `blender/build_all.sh` exportiert all
 - Steuerung: Desktop (Maus/Tastatur) und Touch (Stick links, Wischen rechts, Auto-Feuer,
   Knöpfe für Springen, Aktion, Pause), Android-Zurück-Taste
 
-### Phase 3 – Spielablauf
+### Phase 3 – Spielablauf ✅ (erste Fassung)
 - Munition: Blase, Fizz-Granate, Prisma-Strahl, Aero-Nova
 - Scherben mit Magnet, Rucksack, Recycler, Shop mit allen Upgrades, Drohnen, Fern-Recycling
 - Balancing aus `src/config.js` übernehmen, Speichern unter `user://`
