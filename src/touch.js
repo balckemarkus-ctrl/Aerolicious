@@ -1,6 +1,7 @@
 // Touch-Steuerung für Handy/Tablet: links virtueller Stick, rechts Wischen zum Zielen,
 // Knöpfe für Springen, Aktion (Recyceln/Shop), Ton und Pause. Munition: Slots antippen.
 // Auf dem Desktop mit `?touch` in der URL testbar.
+import { Capacitor } from '@capacitor/core';
 
 export const TOUCH = new URLSearchParams(location.search).has('touch')
   || window.matchMedia('(pointer: coarse)').matches;
@@ -111,7 +112,7 @@ export function initTouch({ player, onAction, onPause, onMute }) {
 // Vollbild + Querformat im normalen Browser (in der App erledigt das Android selbst).
 export function enterFullscreen() {
   const el = document.documentElement;
-  if (document.fullscreenElement || !el.requestFullscreen) return;
+  if (Capacitor.isNativePlatform() || document.fullscreenElement || !el.requestFullscreen) return;
   el.requestFullscreen({ navigationUI: 'hide' })
     .then(() => screen.orientation?.lock?.('landscape'))
     .catch(() => { /* nicht überall erlaubt */ });

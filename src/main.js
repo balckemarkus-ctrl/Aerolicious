@@ -9,6 +9,8 @@ import { Effects } from './effects.js';
 import { Player } from './player.js';
 import { Audio } from './audio.js';
 import { TOUCH, initTouch, enterFullscreen } from './touch.js';
+import { Capacitor } from '@capacitor/core';
+import { App } from '@capacitor/app';
 
 const SAVE_KEY = 'aero-shards-save-v1';
 // ?trailer: Simulation wird von src/trailer.js Bild für Bild gesteuert (kein Speichern, keine Eingabe).
@@ -476,6 +478,16 @@ const touch = TOUCH && !TRAILER ? initTouch({
   onPause: pause,
   onMute: () => audio.toggleMute(),
 }) : null;
+
+// Android-Zurück-Taste: Shop schließen, sonst pausieren, im Menü die App minimieren
+if (Capacitor.isNativePlatform()) {
+  App.addListener('backButton', () => {
+    if (ui.shopOpen) closeShop();
+    else if (ui.winOpen) $('continueBtn').click();
+    else if (ui.started && player.locked) pause();
+    else App.minimizeApp();
+  });
+}
 
 function updatePrompt() {
   nearby = findNearby();

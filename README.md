@@ -13,6 +13,16 @@ npm run build    # Produktions-Build nach dist/
 npm run preview  # Build lokal ansehen
 ```
 
+## Android-App (Capacitor)
+
+Die Web-Version wird mit [Capacitor](https://capacitorjs.com) als Android-App verpackt (Ordner `android/`).
+Voraussetzungen: Android Studio mit SDK und **Java 21** (`JAVA_HOME`), siehe `docs/ANDROID.md`.
+
+```bash
+npm run android:sync   # Web-Build erzeugen und nach android/ kopieren
+npm run android:open   # dasselbe + Android Studio öffnen (dort ▶ Run)
+```
+
 ## Spielprinzip
 
 - Auf der Insel steht ein Brocken aus **3.757 Blöcken** in fünf Stufen (außen → innen):
@@ -37,6 +47,19 @@ npm run preview  # Build lokal ansehen
 | M | Ton an/aus |
 | Esc | Pause |
 
+Auf Handy/Tablet (automatisch erkannt, am Desktop mit `?touch` erzwingbar):
+
+| Touch | Aktion |
+| --- | --- |
+| Linke Bildschirmhälfte: Stick | Laufen (ganz ausgelenkt = rennen) |
+| Rechte Bildschirmhälfte: wischen | Zielen |
+| – | Feuert automatisch, solange das Fadenkreuz auf einem Block liegt |
+| ⤒ | Springen |
+| ♻️ / 🛒 | Recyceln bzw. Shop öffnen (erscheint an der Station) |
+| Munitions-Slots antippen | Munition wechseln |
+| ❚❚ / 🔊 | Pause / Ton |
+| Android-Zurück | Shop schließen bzw. Pause |
+
 ## Aufbau
 
 | Datei | Inhalt |
@@ -48,6 +71,7 @@ npm run preview  # Build lokal ansehen
 | `src/player.js` | Ego-Steuerung mit Voxel-Kollision |
 | `src/effects.js` | Projektile, Strahl, Funken, Explosionsringe, Drohnen-Laser |
 | `src/audio.js` | Synthetisierte Soundeffekte und Ambient-Akkorde |
+| `src/touch.js` | Touch-Steuerung: Stick, Wischen, Knöpfe, Vollbild |
 | `src/main.js` | Spielschleife, Waffen, Drohnen, HUD, Shop, Speichern |
 
 ## Trailer

@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Aero Shards</string>
+    <string name="title_activity_main">Aero Shards</string>
+    <string name="package_name">de.balcke.aeroshards</string>
+    <string name="custom_url_scheme">de.balcke.aeroshards</string>
+</resources>

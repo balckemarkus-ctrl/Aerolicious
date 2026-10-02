@@ -1,0 +1,9 @@
+{
+  "appId": "de.balcke.aeroshards",
+  "appName": "Aero Shards",
+  "webDir": "dist",
+  "backgroundColor": "#8fd6ff",
+  "android": {
+    "backgroundColor": "#8fd6ff"
+  }
+}
