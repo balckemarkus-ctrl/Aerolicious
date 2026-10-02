@@ -170,31 +170,24 @@ static func shape_cells(lv: Dictionary) -> Array[Vector3i]:
 						st.y * d - 1 if st.y != 0 else -2, st.y * d + 1 if st.y != 0 else 2)
 			box.call(-3, 3, 9, 13, -3, 3) # Tempel
 		"atomium":
-			var s := 4.6
+			# Neun Kugeln: Würfel auf eine Ecke gestellt (Raumdiagonale senkrecht), Röhren entlang der Kanten
+			var s := 5.0
 			var pts: Array[Vector3] = [Vector3.ZERO]
 			for x in [-1, 1]:
 				for y in [-1, 1]:
 					for z in [-1, 1]:
 						pts.append(Vector3(x, y, z) * s)
-			# Würfel auf eine Ecke stellen: Raumdiagonale senkrecht
 			var rot := Basis(Vector3(1, 0, -1).normalized(), atan(sqrt(2.0))) * Basis(Vector3.UP, PI / 4)
 			var world: Array[Vector3] = []
 			for p in pts:
-				world.append(rot * p + Vector3(0, 11.5, 0))
-			for p in world:
-				ball.call(p, 2.6)
+				world.append(rot * p + Vector3(0, 10.6, 0))
 			for a in range(1, 9):
-				tube.call(world[0], world[a], 0.9)
+				tube.call(world[0], world[a], 0.65)
 				for b in range(a + 1, 9):
 					if pts[a].distance_to(pts[b]) < s * 2.1:
-						tube.call(world[a], world[b], 0.8)
-			var low := world[0]
+						tube.call(world[a], world[b], 0.65)
 			for p in world:
-				if p.y < low.y:
-					low = p
-			for n in 3: # Stützen
-				var a := n * TAU / 3.0
-				tube.call(low, Vector3(cos(a) * 6.0, 0, sin(a) * 6.0), 0.8)
+				ball.call(p, 2.9)
 		"pagoda":
 			var y := 0
 			for t in 5:
