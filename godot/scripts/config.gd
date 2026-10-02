@@ -64,6 +64,8 @@ const UPGRADES := [
 	{ "id": "magnet",    "tab": 1, "icon": "🧲", "name": "Magnet",              "desc": "Größerer Sammelradius",                     "base": 12,     "growth": 1.35, "max": 20 },
 	{ "id": "bag",       "tab": 1, "icon": "🎒", "name": "Rucksack",            "desc": "+25 % Platz für Splitter",                  "base": 10,     "growth": 1.32, "max": 40 },
 	{ "id": "speed",     "tab": 1, "icon": "👟", "name": "Turnschuhe",          "desc": "+5 % Lauftempo",                            "base": 30,     "growth": 1.45, "max": 10 },
+	{ "id": "jetpack",   "tab": 1, "icon": "🚀", "name": "Jetpack",             "desc": "Fliegen: Springen gedrückt halten zum Aufsteigen", "base": 2500, "growth": 1.0, "max": 1 },
+	{ "id": "jetPower",  "tab": 1, "icon": "🔥", "name": "Jetpack-Schub",       "desc": "+15 % Steiggeschwindigkeit und mehr Flughöhe", "base": 4000, "growth": 1.35, "max": 10, "needs": "jetpack" },
 	{ "id": "goldRush",  "tab": 1, "icon": "✨", "name": "Goldrausch",          "desc": "+25 % Perlen aus Goldblöcken",              "base": 300,    "growth": 1.3,  "max": 25 },
 	{ "id": "autoRecycle","tab": 1, "icon": "📡", "name": "Fern-Konverter",     "desc": "Splitter werden sofort in Perlen getauscht", "base": 150000, "growth": 1.0, "max": 1 },
 	# Drohnen
@@ -128,6 +130,9 @@ static func stats(up: Dictionary, cores := 0, ach := 0) -> Dictionary:
 		"gold_mult": 1.0 + 0.25 * l.call("goldRush"),
 		"auto_recycle": l.call("autoRecycle") > 0,
 		"auto_fire": l.call("autoFire") > 0,
+		"jetpack": l.call("jetpack") > 0,
+		"jet_speed": 6.0 * (1.0 + 0.15 * l.call("jetPower")),
+		"jet_ceiling": 14.0 + 0.8 * l.call("jetPower"),
 		"drones": l.call("drones"),
 		"drone_damage": 0.6 * (1.0 + 0.3 * l.call("droneDamage")) * milestone.call("droneDamage") * cm,
 		"drone_interval": 1.2 / (1.0 + 0.08 * l.call("droneSpeed")),

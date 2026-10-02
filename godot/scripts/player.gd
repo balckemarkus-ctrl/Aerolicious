@@ -48,6 +48,10 @@ func collides(chunk: Chunk, px: float, py: float, pz: float) -> bool:
 					return true
 	return false
 
+var jetpack := false     # Upgrade: Fliegen mit gedrücktem Sprung
+var jet_speed := 6.0
+var jet_ceiling := 14.0
+
 func update(dt: float, chunk: Chunk, colliders: Array, speed: float) -> void:
 	var f := float(_key(KEY_W) or _key(KEY_UP)) - float(_key(KEY_S) or _key(KEY_DOWN)) + stick.y
 	var s := float(_key(KEY_D) or _key(KEY_RIGHT)) - float(_key(KEY_A) or _key(KEY_LEFT)) + stick.x
@@ -67,10 +71,16 @@ func update(dt: float, chunk: Chunk, colliders: Array, speed: float) -> void:
 	vel.x += (w.x * target - vel.x) * minf(1.0, accel * dt)
 	vel.z += (w.y * target - vel.z) * minf(1.0, accel * dt)
 
-	if locked and (_key(KEY_SPACE) or jump_held) and on_ground:
+	var jump := locked and (_key(KEY_SPACE) or jump_held)
+	if jump and on_ground:
 		vel.y = 8.0
 		on_ground = false
-	vel.y -= 22.0 * dt
+	if jetpack and jump and not on_ground and pos.y < jet_ceiling:
+		vel.y = move_toward(vel.y, jet_speed, 40.0 * dt) # Schub nach oben
+	elif jetpack and not on_ground and vel.y < -3.0:
+		vel.y = move_toward(vel.y, -3.0, 30.0 * dt)       # sanft gleiten statt fallen
+	else:
+		vel.y -= 22.0 * dt
 
 	var nx := pos.x + vel.x * dt
 	if not collides(chunk, nx, pos.y, pos.z): pos.x = nx

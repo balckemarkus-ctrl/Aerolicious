@@ -696,6 +696,9 @@ func _process(delta: float) -> void:
 	time += dt
 	if playing:
 		play_time += dt
+	player.jetpack = S.jetpack
+	player.jet_speed = S.jet_speed
+	player.jet_ceiling = S.jet_ceiling
 	player.update(dt, chunk, world.colliders, S.speed)
 	_update_weapon(dt)
 	_update_drones(time, dt)
@@ -791,6 +794,15 @@ func _start_autotest() -> void:
 	var saved := chunk.serialize()
 	chunk.restore(saved)
 	print("AUTOTEST save roundtrip ok=%s fps=%d" % [chunk.serialize() == saved, Engine.get_frames_per_second()])
+	up["jetpack"] = 1
+	S = Config.stats(up, cores, achieved.size())
+	player.pos = Vector3(0, 0, 30)
+	player.jump_held = true
+	await get_tree().create_timer(2.5).timeout
+	var top := player.pos.y
+	player.jump_held = false
+	await get_tree().create_timer(1.0).timeout
+	print("AUTOTEST jetpack: Höhe nach 2,5 s = %.1f (Decke %.0f), nach 1 s Gleiten = %.1f" % [top, S.jet_ceiling, player.pos.y])
 	_check_achievements()
 	print("AUTOTEST erfolge: %d freigeschaltet: %s" % [achieved.size(), ", ".join(achieved)])
 	get_tree().quit()
