@@ -522,7 +522,7 @@ func _build_shop() -> void:
 	panel.add_child(v)
 	var head := HBoxContainer.new()
 	head.add_theme_constant_override("separation", 20)
-	var t := label("Shop", 38, NEON)
+	var t := head("SHOP", 34, NEON)
 	t.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	head.add_child(t)
 	head.add_child(Ball.new(PEARL, 28))
@@ -633,7 +633,7 @@ func _build_achievements() -> void:
 	v.add_theme_constant_override("separation", 12)
 	panel.add_child(v)
 	var head := HBoxContainer.new()
-	ach_title = label("", 34, NEON)
+	ach_title = head("", 30, NEON)
 	ach_title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	head.add_child(ach_title)
 	var close := button("Schließen", 22, false)
