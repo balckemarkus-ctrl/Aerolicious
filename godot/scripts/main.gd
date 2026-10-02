@@ -10,6 +10,7 @@ var slot := 1
 # Einstellungen für alle Spielstände: Zielempfindlichkeit, Grafik (0 niedrig, 1 mittel, 2 hoch), Lautstärke, Vibration
 var settings := { "sens": 1.0, "quality": 1, "volume": 0.8, "vibration": true }
 var _last_vibe := 0
+var saved_at := 0.0 # Zeitpunkt des letzten Speicherns (für Offline-Einnahmen)
 var save_path := "user://save_1.json"
 
 var args := OS.get_cmdline_user_args()
@@ -94,6 +95,26 @@ static func slot_summary(n: int) -> String:
 		return "Leer"
 	var lv := clampi(int(d.get("level", 0)), 0, Config.LEVELS.size() - 1)
 	return "%s · %s Perlen · %d Kerne" % [Config.LEVELS[lv].name, Hud.fmt(float(d.get("credits", 0))), int(d.get("cores", 0))]
+
+# Drohnen sammeln weiter, während das Spiel geschlossen ist (Anteil per "Nachtschicht", max. 8 Stunden)
+func _offline_earnings() -> void:
+	if saved_at <= 0 or S.drones <= 0:
+		return
+	var away := minf(Time.get_unix_time_from_system() - saved_at, 8 * 3600.0)
+	if away < 60:
+		return
+	var dps: float = S.drones * S.drone_damage / S.drone_interval
+	var block_hp: float = Config.TIERS[0].hp * Config.LEVELS[level].hp * 1.3
+	var per_block: float = tier_value(0) * Config.TIERS[0].shards
+	var gain := roundf(dps / block_hp * per_block * away * S.offline_rate)
+	if gain < 1:
+		return
+	earn(gain)
+	var h := floori(away / 3600.0)
+	var m := floori(fmod(away, 3600.0) / 60.0)
+	var t := ("%d Std. %d Min." % [h, m]) if h > 0 else ("%d Min." % m)
+	hud.toast("Willkommen zurück! Deine Drohnen haben in %s %s Perlen gesammelt." % [t, Hud.fmt(gain)])
+	save_game()
 
 func save_settings() -> void:
 	var d := settings.duplicate()
@@ -221,6 +242,8 @@ func _ready() -> void:
 	S = Config.stats(up, cores, achieved.size())
 	apply_gun_skin()
 	apply_settings() # erst jetzt existiert auch die Touch-Steuerung
+	if had_save:
+		_offline_earnings()
 	set_ammo(ammo if unlocked(ammo) else 0)
 	if touch:
 		touch.set_muted(sfx.muted)
@@ -327,7 +350,7 @@ func save_game() -> void:
 		return
 	f.store_string(JSON.stringify({
 		"v": 1, "level": level, "cores": cores, "run_earned": run_earned, "shots": shots, "counters": counters, "achieved": achieved, "unlocked_level": unlocked_level, "chunks": chunks, "chunk": chunk.serialize(), "credits": credits, "earned": earned, "inv": inv, "up": up,
-		"ammo": ammo, "play_time": play_time, "won": won, "player": player.serialize(), "muted": sfx.muted, "skin_gun": skin_gun, "skin_palette": Config.palette,
+		"ammo": ammo, "play_time": play_time, "won": won, "player": player.serialize(), "muted": sfx.muted, "skin_gun": skin_gun, "skin_palette": Config.palette, "saved_at": Time.get_unix_time_from_system(),
 	}))
 
 func load_game() -> bool:
@@ -351,6 +374,7 @@ func load_game() -> bool:
 	chunks = d.get("chunks", {})
 	achieved = d.get("achieved", [])
 	skin_gun = clampi(int(d.get("skin_gun", 0)), 0, Config.GUN_SKINS.size() - 1)
+	saved_at = float(d.get("saved_at", 0))
 	play_time = d.play_time
 	won = d.won
 	if d.get("player") != null:

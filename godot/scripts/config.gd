@@ -105,6 +105,7 @@ const UPGRADES := [
 	# Drohnen
 	{ "id": "drones",    "tab": 2, "icon": "🛸", "name": "Helfer-Drohne",         "desc": "Eine weitere Helfer-Drohne",                "base": 1500,   "growth": 2.4,  "max": 12 },
 	{ "id": "droneDamage","tab": 2, "icon": "🔫", "name": "Drohnen-Laser",      "desc": "+30 % Drohnenschaden, ×2 alle 25 Stufen",   "base": 2000,   "growth": 1.2,  "max": 100, "needs": "drones" },
+	{ "id": "nightShift","tab": 2, "icon": "", "name": "Nachtschicht",        "desc": "Drohnen verdienen offline +25 % mehr (Start: 50 %)", "base": 5000, "growth": 1.4, "max": 10, "needs": "drones" },
 	{ "id": "droneSpeed","tab": 2, "icon": "🔋", "name": "Drohnen-Turbo",       "desc": "+8 % Feuertempo der Drohnen",               "base": 2500,   "growth": 1.28, "max": 30, "needs": "drones" },
 ]
 
@@ -172,6 +173,7 @@ static func stats(up: Dictionary, cores := 0, ach := 0) -> Dictionary:
 		"jet_ceiling": 14.0 + 0.8 * l.call("jetPower"),
 		"drones": l.call("drones"),
 		"drone_damage": 0.6 * (1.0 + 0.3 * l.call("droneDamage")) * milestone.call("droneDamage") * cm,
+		"offline_rate": 0.5 + 0.25 * l.call("nightShift"),
 		"drone_interval": 1.2 / (1.0 + 0.08 * l.call("droneSpeed")),
 	}
 
