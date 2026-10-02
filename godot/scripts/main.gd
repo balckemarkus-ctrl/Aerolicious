@@ -262,6 +262,7 @@ func _ready() -> void:
 		_prewarm()
 	if Array(args).any(func(x): return x.begins_with("--showlevel=")):
 		hud.menu.visible = false
+		hud.set_hud_visible(true)
 		player.pos = Vector3(0, 0, 44)
 		player.pitch = 0.22
 	if "--showshop" in args: # Vorschau des Shops (Entwicklung)

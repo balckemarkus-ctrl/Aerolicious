@@ -23,7 +23,7 @@ signal skin_selected(kind: String, index: int)
 const INK := Color("e6f4ff")        # Schrift: helles Blau-Weiß
 const NEON := Color("2fe8ff")
 const PEARL := Color("8dffb0")
-const MUTED := Color("8ea3bd")
+const MUTED := Color("b9c8da")   # Nebentexte: hell genug für dunklen Grund (Kontrast > 7:1)
 
 static var font_body: FontVariation
 static var font_head: FontVariation
@@ -47,7 +47,7 @@ static func head(text: String, size: int, color := Color.WHITE) -> Label:
 
 # Kleine Überschrift in Großbuchstaben (Abschnittstitel)
 static func caption(text: String, color := MUTED) -> Label:
-	var l := head(text.to_upper(), 14, color)
+	var l := head(text.to_upper(), 15, color)
 	return l
 
 var touch_mode := false
@@ -103,7 +103,7 @@ var cont_btn: Button
 
 # ---------- Bausteine ----------
 
-static func style(radius := 6, alpha := 0.84, bg := Color("0a111c")) -> StyleBoxFlat:
+static func style(radius := 6, alpha := 0.9, bg := Color("0a111c")) -> StyleBoxFlat:
 	radius = mini(radius, 8)
 	var sb := StyleBoxFlat.new()
 	sb.bg_color = Color(bg, alpha)
@@ -134,7 +134,7 @@ static func button(text: String, size: int, green := true) -> Button:
 	var fg := Color("06121f") if green else INK
 	for c in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color"]:
 		b.add_theme_color_override(c, fg)
-	b.add_theme_color_override("font_disabled_color", Color(fg, 0.5))
+	b.add_theme_color_override("font_disabled_color", Color("9fb0c4") if not green else Color(fg, 0.75))
 	for st in ["normal", "hover", "pressed", "focus", "disabled"]:
 		var bg := NEON if green else Color("13202f")
 		if st == "hover":
@@ -260,7 +260,7 @@ func _build_hud() -> void:
 	tv.add_theme_constant_override("separation", 4)
 	top.add_child(tv)
 	var row := HBoxContainer.new()
-	level_label = label("BAUWERK", 16)
+	level_label = caption("Bauwerk", NEON)
 	row.add_child(level_label)
 	var sp := Control.new()
 	sp.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -275,7 +275,7 @@ func _build_hud() -> void:
 	tiers.alignment = BoxContainer.ALIGNMENT_CENTER
 	tiers.add_theme_constant_override("separation", 18)
 	for t in Config.TIERS.size():
-		var l := label("", 16)
+		var l := label("", 17)
 		tier_labels.append(l)
 		var dotl := Ball.new(Config.tier_color(t), 15)
 		var h := HBoxContainer.new()
@@ -302,17 +302,17 @@ func _build_hud() -> void:
 	cr.add_child(credits_label)
 	wv.add_child(cr)
 	var br := HBoxContainer.new()
-	br.add_child(label("RUCKSACK", 15))
+	br.add_child(caption("Rucksack"))
 	var sp2 := Control.new()
 	sp2.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	br.add_child(sp2)
-	bag_label = label("", 17)
+	bag_label = label("", 18)
 	br.add_child(bag_label)
 	wv.add_child(br)
 	var bb := bar(NEON, 10)
 	wv.add_child(bb[0])
 	bag_fill = bb[1]
-	inv_label = label("", 15)
+	inv_label = label("", 16)
 	wv.add_child(inv_label)
 	root.add_child(wallet)
 
@@ -331,13 +331,13 @@ func _build_hud() -> void:
 		var v := VBoxContainer.new()
 		v.alignment = BoxContainer.ALIGNMENT_CENTER
 		v.add_theme_constant_override("separation", 0)
-		var num := label(str(i + 1), 13)
+		var num := label(str(i + 1), 15)
 		num.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		v.add_child(num)
 		var ball := Ball.new(Config.AMMO[i].color, 34)
 		ball.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 		v.add_child(ball)
-		var nm := label("", 14)
+		var nm := label("", 15)
 		nm.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		v.add_child(nm)
 		slot.add_child(v)
@@ -366,7 +366,7 @@ func _build_hud() -> void:
 	toasts.add_theme_constant_override("separation", 8)
 	root.add_child(toasts)
 
-	fps_label = label("", 14)
+	fps_label = label("", 15)
 	fps_label.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_LEFT)
 	fps_label.position = Vector2(16, -26) if touch_mode else Vector2(16, -76)
 	root.add_child(fps_label)
@@ -672,13 +672,13 @@ func render_shop(credits: float, up: Dictionary) -> void:
 		cv.add_theme_constant_override("separation", 4)
 		card.add_child(cv)
 		cv.add_child(head(u.name, 21))
-		var d := label(u.desc, 16)
+		var d := label(u.desc, 17)
 		d.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		d.add_theme_color_override("font_color", Color(INK, 0.8))
+		d.add_theme_color_override("font_color", MUTED)
 		cv.add_child(d)
 		var lvl_text := ("Freigeschaltet" if maxed else "Einmalig") if u.max == 1 else "Stufe %d / %d" % [lvl, u.max]
-		var ll := label(lvl_text, 14)
-		ll.add_theme_color_override("font_color", Color(INK, 0.65))
+		var ll := label(lvl_text, 15)
+		ll.add_theme_color_override("font_color", MUTED)
 		cv.add_child(ll)
 		var label_text := "Maximal" if maxed else ("%s Perlen" % fmt(cost) if count <= 1 else "+%d  ·  %s Perlen" % [count, fmt(cost)])
 		var b := button(label_text, 19)
@@ -941,9 +941,9 @@ func show_achievements(achieved: Array) -> void:
 		var cv := VBoxContainer.new()
 		cv.mouse_filter = Control.MOUSE_FILTER_PASS
 		cv.add_child(head(a.name, 20, Color("ffc94a") if done else INK))
-		var d := label(a.desc, 15)
+		var d := label(a.desc, 16)
 		d.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		d.add_theme_color_override("font_color", Color(INK, 0.75))
+		d.add_theme_color_override("font_color", MUTED)
 		cv.add_child(d)
 		card.add_child(cv)
 		ach_grid.add_child(card)
@@ -1018,7 +1018,7 @@ func render_ammo(current: int, unlocked: Array) -> void:
 			sb.shadow_color = Color(0.2, 0.9, 1.0, 0.6)
 			sb.shadow_size = 14
 		slot.add_theme_stylebox_override("panel", sb)
-		slot.modulate = Color.WHITE if unlocked[i] else Color(1, 1, 1, 0.45)
+		slot.modulate = Color.WHITE if unlocked[i] else Color(1, 1, 1, 0.7)
 		var name_label := slot.get_child(0).get_child(2) as Label
 		name_label.text = Config.AMMO[i].name if unlocked[i] else "Gesperrt"
 
