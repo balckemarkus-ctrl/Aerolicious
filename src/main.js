@@ -45,6 +45,16 @@ const fx = new Effects(scene);
 const player = new Player(camera, canvas);
 const audio = new Audio();
 
+// PowerVR-Grafiktreiber (z. B. Pixel 10) stürzen bei instanziertem Zeichnen ohne Index-Puffer
+// oder mit 0 Instanzen ab. Daher: Index ergänzen und leere InstancedMeshes vor dem Rendern ausblenden.
+const instanced = [];
+scene.traverse((o) => {
+  if (!o.isInstancedMesh) return;
+  instanced.push(o);
+  const g = o.geometry;
+  if (!g.index) g.setIndex([...Array(g.attributes.position.count).keys()]);
+});
+
 // ---------- Spielstand ----------
 const state = { credits: 0, earned: 0, inv: [0, 0, 0, 0, 0], up: {}, ammo: 0, playTime: 0, won: false };
 let S = stats(state.up);
@@ -573,6 +583,7 @@ function tick(dt) {
     updatePrompt();
   }
 
+  for (const m of instanced) m.visible = m.count > 0;
   renderer.render(scene, camera);
 }
 
