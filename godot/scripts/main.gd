@@ -62,6 +62,9 @@ func _ready() -> void:
 	world = World.new()
 	add_child(world)
 	level = 0 if autotest else _saved_level()
+	for arg in args:
+		if arg.begins_with("--showlevel="): # Vorschau eines Bauwerks (Entwicklung)
+			level = int(arg.split("=")[1])
 	chunk = Chunk.new(World.first_mesh(World.model("block")), level)
 	chunk.block_broken.connect(_on_block_broken)
 	add_child(chunk)
@@ -139,6 +142,10 @@ func _ready() -> void:
 		_start_autotest()
 	else:
 		_prewarm()
+	if Array(args).any(func(x): return x.begins_with("--showlevel=")):
+		hud.menu.visible = false
+		player.pos = Vector3(0, 0, 44)
+		player.pitch = 0.22
 	if "--leveltest" in args:
 		_level_test()
 

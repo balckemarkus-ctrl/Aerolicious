@@ -54,43 +54,214 @@ func _init(block_mesh: Mesh, level_index := 0) -> void:
 	_build_meshes(block_mesh)
 	recompute_exposed()
 
-# Zellen eines Bauwerks (Gitterkoordinaten, Boden bei j = 0)
+# Zellen eines Bauwerks (Gitterkoordinaten, Boden bei j = 0). Wahrzeichen als Block-Modelle.
 static func shape_cells(lv: Dictionary) -> Array[Vector3i]:
-	var out: Array[Vector3i] = []
-	var sz: Vector3i = lv.size
+	var set := {}
+	var add := func(i: int, j: int, k: int) -> void:
+		if j >= 0 and j < 23:
+			set[Vector3i(i, j, k)] = true
+	var box := func(x0: int, x1: int, y0: int, y1: int, z0: int, z1: int) -> void:
+		for i in range(x0, x1 + 1):
+			for j in range(y0, y1 + 1):
+				for k in range(z0, z1 + 1):
+					add.call(i, j, k)
+	var cyl := func(cx: float, cz: float, r: float, y0: int, y1: int) -> void:
+		for i in range(floori(cx - r), ceili(cx + r) + 1):
+			for k in range(floori(cz - r), ceili(cz + r) + 1):
+				if Vector2(i - cx, k - cz).length() <= r:
+					for j in range(y0, y1 + 1):
+						add.call(i, j, k)
+	var ball := func(c: Vector3, r: float) -> void:
+		for i in range(floori(c.x - r), ceili(c.x + r) + 1):
+			for j in range(floori(c.y - r), ceili(c.y + r) + 1):
+				for k in range(floori(c.z - r), ceili(c.z + r) + 1):
+					if Vector3(i, j, k).distance_to(c) <= r:
+						add.call(i, j, k)
+	var tube := func(a: Vector3, b: Vector3, r: float) -> void:
+		var steps := ceili(a.distance_to(b) * 2.0)
+		for s in steps + 1:
+			ball.call(a.lerp(b, float(s) / steps), r)
+	var sz: Vector3i = lv.get("size", Vector3i(10, 10, 10))
 	match lv.shape:
 		"cube":
-			for i in range(-sz.x / 2, sz.x - sz.x / 2):
-				for j in sz.y:
-					for k in range(-sz.z / 2, sz.z - sz.z / 2):
-						out.append(Vector3i(i, j, k))
+			box.call(-sz.x / 2, sz.x - sz.x / 2 - 1, 0, sz.y - 1, -sz.z / 2, sz.z - sz.z / 2 - 1)
 		"pyramid":
 			for j in sz.y:
 				var h := sz.y - 1 - j
-				for i in range(-h, h + 1):
-					for k in range(-h, h + 1):
-						out.append(Vector3i(i, j, k))
+				box.call(-h, h, j, j, -h, h)
 		"tower":
 			var r := sz.x / 2.0
-			var e := ceili(r) + 1
-			for j in sz.y:
-				for i in range(-e, e + 1):
-					for k in range(-e, e + 1):
-						var d := Vector2(i, k).length()
-						if d > r:
-							continue
-						if j >= sz.y - 2: # Zinnen oben
-							if d < r - 1.6 or sin(atan2(k, i) * 6.0) < 0:
-								continue
-						out.append(Vector3i(i, j, k))
+			cyl.call(0.0, 0.0, r, 0, sz.y - 3)
+			for i in range(-ceili(r), ceili(r) + 1): # Zinnen
+				for k in range(-ceili(r), ceili(r) + 1):
+					var d := Vector2(i, k).length()
+					if d <= r and d >= r - 1.6 and sin(atan2(k, i) * 6.0) >= 0:
+						box.call(i, i, sz.y - 2, sz.y - 1, k, k)
 		"sphere":
 			var rad := sz.x / 2.0
-			var e := ceili(rad) + 1
-			for i in range(-e, e + 1):
-				for j in sz.y:
-					for k in range(-e, e + 1):
-						if Vector3(i, j - rad + 0.5, k).length() <= rad:
-							out.append(Vector3i(i, j, k))
+			ball.call(Vector3(0, rad - 0.5, 0), rad)
+		"stonehenge":
+			for n in 16: # äußerer Steinkreis mit Decksteinen
+				var a := n * TAU / 16.0
+				var x := roundi(cos(a) * 11.0)
+				var z := roundi(sin(a) * 11.0)
+				box.call(x - 1, x + 1, 0, 7, z - 1, z)
+				tube.call(Vector3(x, 8, z), Vector3(cos(a + TAU / 16.0) * 11.0, 8, sin(a + TAU / 16.0) * 11.0), 0.8)
+			for n in 5: # innere Trilithen (Hufeisen)
+				var a := PI * 0.15 + n * PI * 0.175 + PI
+				var x := roundi(cos(a) * 6.0)
+				var z := roundi(sin(a) * 6.0)
+				box.call(x - 2, x - 1, 0, 10, z - 1, z)
+				box.call(x + 1, x + 2, 0, 10, z - 1, z)
+				box.call(x - 2, x + 2, 11, 12, z - 1, z)
+			box.call(-2, 2, 0, 1, -1, 1) # Altarstein
+			for n in 72: # Erdwall
+				var a := n * TAU / 72.0
+				box.call(roundi(cos(a) * 15.0), roundi(cos(a) * 15.0), 0, 1, roundi(sin(a) * 15.0), roundi(sin(a) * 15.0))
+		"brandenburg":
+			box.call(-13, 13, 0, 1, -4, 4) # Sockel
+			for c in 6: # sechs Säulen
+				var x := -11 + c * 4 + (1 if c >= 3 else 0)
+				cyl.call(float(x), -1.0, 1.4, 2, 11)
+				cyl.call(float(x), 2.0, 1.4, 2, 11)
+			box.call(-13, 13, 12, 14, -4, 4) # Gebälk
+			box.call(-8, 8, 15, 17, -3, 3)   # Attika
+			box.call(-2, 2, 18, 20, -1, 1)   # Quadriga
+			box.call(-17, -14, 0, 9, -3, 3)  # Seitenflügel
+			box.call(14, 17, 0, 9, -3, 3)
+		"pisa":
+			for j in 21:
+				var off := j * 0.16
+				var r := 5.0 if j < 18 else 3.6
+				cyl.call(off, 0.0, r, j, j)
+				if j % 3 == 2 and j < 18: # Galerie-Ringe
+					for n in 24:
+						var a := n * TAU / 24.0
+						add.call(roundi(off + cos(a) * 6.0), j, roundi(sin(a) * 6.0))
+		"colosseum":
+			for i in range(-19, 20):
+				for k in range(-15, 16):
+					var e := pow(i / 19.0, 2) + pow(k / 15.0, 2)
+					var e_in := pow(i / 12.0, 2) + pow(k / 8.0, 2)
+					if e > 1.0 or e_in < 1.0:
+						continue
+					var a := atan2(k, i)
+					var top := 12 if a > -0.6 else 8 + roundi(4.0 * absf(sin(a * 2.0))) # eine Seite verfallen
+					var outer := e > 0.82
+					for j in top + 1:
+						var arch := outer and j % 4 != 0 and j % 4 != 3 and posmod(floori((a + PI) * 30.0 / TAU), 2) == 0
+						if not arch:
+							add.call(i, j, k)
+		"bigben":
+			box.call(-14, 2, 0, 6, -4, 4)    # Parlamentsgebäude
+			box.call(4, 10, 0, 14, -3, 3)    # Turmschaft
+			box.call(3, 11, 15, 17, -4, 4)   # Uhrengeschoss
+			box.call(4, 10, 18, 19, -3, 3)   # Glockenstube
+			for t in 3:                      # Turmhelm
+				box.call(5 + t, 9 - t, 20 + t, 20 + t, -2 + t, 2 - t)
+		"chichen":
+			for j in 9:
+				var h := 12 - j
+				box.call(-h, h, j, j, -h, h)
+			for st in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]: # Treppen
+				for j in 9:
+					var d := 12 - j + 1
+					box.call(st.x * d - 1 if st.x != 0 else -2, st.x * d + 1 if st.x != 0 else 2, j, j,
+						st.y * d - 1 if st.y != 0 else -2, st.y * d + 1 if st.y != 0 else 2)
+			box.call(-3, 3, 9, 13, -3, 3) # Tempel
+		"atomium":
+			var s := 4.6
+			var pts: Array[Vector3] = [Vector3.ZERO]
+			for x in [-1, 1]:
+				for y in [-1, 1]:
+					for z in [-1, 1]:
+						pts.append(Vector3(x, y, z) * s)
+			# Würfel auf eine Ecke stellen: Raumdiagonale senkrecht
+			var rot := Basis(Vector3(1, 0, -1).normalized(), atan(sqrt(2.0))) * Basis(Vector3.UP, PI / 4)
+			var world: Array[Vector3] = []
+			for p in pts:
+				world.append(rot * p + Vector3(0, 11.5, 0))
+			for p in world:
+				ball.call(p, 2.6)
+			for a in range(1, 9):
+				tube.call(world[0], world[a], 0.9)
+				for b in range(a + 1, 9):
+					if pts[a].distance_to(pts[b]) < s * 2.1:
+						tube.call(world[a], world[b], 0.8)
+			var low := world[0]
+			for p in world:
+				if p.y < low.y:
+					low = p
+			for n in 3: # Stützen
+				var a := n * TAU / 3.0
+				tube.call(low, Vector3(cos(a) * 6.0, 0, sin(a) * 6.0), 0.8)
+		"pagoda":
+			var y := 0
+			for t in 5:
+				var h := 7 - t
+				box.call(-h, h, y, y + 2, -h, h)
+				box.call(-h - 2, h + 2, y + 3, y + 3, -h - 2, h + 2) # Dach mit Überstand
+				y += 4
+			cyl.call(0.0, 0.0, 0.8, y, y + 2)
+		"taj":
+			box.call(-15, 15, 0, 1, -15, 15) # Plattform
+			for j in range(2, 11):          # Hauptbau mit abgeschrägten Ecken und Nischen
+				for i in range(-8, 9):
+					for k in range(-8, 9):
+						if absi(i) + absi(k) > 13:
+							continue
+						var niche := (absi(i) == 8 or absi(k) == 8) and j >= 3 and j <= 8 and (absi(i) <= 2 or absi(k) <= 2)
+						if not niche:
+							add.call(i, j, k)
+			cyl.call(0.0, 0.0, 4.0, 11, 12)  # Trommel
+			ball.call(Vector3(0, 15, 0), 5.0)
+			cyl.call(0.0, 0.0, 0.6, 19, 22)  # Spitze
+			for c in [Vector2(-5, -5), Vector2(5, -5), Vector2(-5, 5), Vector2(5, 5)]:
+				ball.call(Vector3(c.x, 12, c.y), 2.0)
+			for c in [Vector2(-13, -13), Vector2(13, -13), Vector2(-13, 13), Vector2(13, 13)]:
+				cyl.call(c.x, c.y, 1.3, 2, 18)
+		"wall":
+			for i in range(-26, 27):
+				var z := roundi(6.0 * sin(i / 7.0))
+				box.call(i, i, 0, 6, z - 2, z + 1)
+				if i % 2 == 0:
+					add.call(i, 7, z - 2)
+					add.call(i, 7, z + 1)
+				if posmod(i + 26, 13) == 0: # Wachtürme
+					box.call(i - 3, i + 3, 0, 10, z - 3, z + 2)
+		"dom":
+			box.call(-5, 5, 0, 11, -6, 16)   # Langhaus
+			for j in range(12, 17):          # Satteldach
+				box.call(-5 + (j - 11), 5 - (j - 11), j, j, -6, 16)
+			box.call(-12, 12, 0, 11, 6, 10)  # Querhaus
+			for side in [-1, 1]:             # zwei Westtürme
+				var x: int = side * 6
+				box.call(x - 3, x + 3, 0, 14, -12, -6)
+				for t in 7:
+					box.call(x - 2 + t / 3, x + 2 - t / 3, 15 + t, 15 + t, -11 + t / 3, -7 - t / 3)
+		"eiffel":
+			for cx in [-1, 1]:
+				for cz in [-1, 1]:
+					tube.call(Vector3(cx * 10, 0, cz * 10), Vector3(cx * 4, 8, cz * 4), 1.4)
+					tube.call(Vector3(cx * 4, 8, cz * 4), Vector3(cx * 2, 15, cz * 2), 1.0)
+			for side in 4: # Bögen zwischen den Beinen
+				var a := side * PI / 2.0
+				for n in 21:
+					var t := n / 20.0
+					var p := Vector3(-10 + 20 * t, 4.0 + 2.5 * sin(t * PI), 10)
+					p = Basis(Vector3.UP, a) * p
+					ball.call(p, 0.7)
+			for i in range(-6, 7):           # erste Plattform
+				for k in range(-6, 7):
+					if absi(i) > 2 or absi(k) > 2:
+						add.call(i, 8, k)
+			box.call(-3, 3, 15, 15, -3, 3)   # zweite Plattform
+			for j in range(16, 23):          # Spitze
+				var h := 2 if j < 19 else (1 if j < 21 else 0)
+				box.call(-h, h, j, j, -h, h)
+	var out: Array[Vector3i] = []
+	for c in set:
+		out.append(c)
 	return out
 
 func _generate(cells: Array[Vector3i], max_tier: int) -> void:

@@ -14,7 +14,9 @@ Aero Shards ist ein eigenes Spiel. Allgemeine Spielidee (Blöcke zerschießen, s
 sonniger Wiesen-Look sind frei; alles Kennzeichnende ist eigenständig:
 
 - **Sci-Fi-Industriehalle** mit Neon statt Wiese.
-- **Fünf Bauwerke** nacheinander (Würfel, Stufenpyramide, Turm, Kugel, Riesenwürfel; zusammen 19.438 Blöcke),
+- **17 Bauwerke** nacheinander: Grundformen und Wahrzeichen (Stonehenge, Brandenburger Tor, Schiefer Turm,
+  Kolosseum, Big Ben, Chichén Itzá, Atomium, Pagode, Taj Mahal, Chinesische Mauer, Kölner Dom, Eiffelturm;
+  zusammen 56.955 Blöcke),
   jedes mit eigener Blockzahl und exponentiell steigender Härte (`Config.LEVELS`, Form in `Chunk.shape_cells`).
 - **Splitter-Konverter** statt Recycling: Splitter werden gegen **Perlen** getauscht.
 - Blockarten: **Panzerblöcke** (gestreift), **Goldblöcke** (Perlen-Regen), **Explosivblöcke** (Kettenreaktion),

@@ -4,13 +4,25 @@ class_name Config
 # mit vielen kleinen Stufen und verdoppeln sich alle 25 Stufen (Meilensteine). Kerne aus
 # geschafften Bauwerken und Reaktor-Neustarts verstärken alles dauerhaft.
 
-# Fünf Bauwerke nacheinander. "max_tier": härteste Block-Stufe, "hp"/"value": Faktor für HP und Wert.
+# Siebzehn Bauwerke nacheinander (Grundformen und Wahrzeichen). "max_tier": härteste Block-Stufe, "hp"/"value": Faktor für HP und Wert.
 const LEVELS := [
-	{ "name": "Würfel",          "shape": "cube",    "size": Vector3i(14, 10, 14),  "max_tier": 1, "hp": 1.0,   "value": 1.0,  "cores": 1 },
-	{ "name": "Stufenpyramide",  "shape": "pyramid", "size": Vector3i(25, 13, 25), "max_tier": 2, "hp": 3.0,   "value": 2.5,  "cores": 2 },
-	{ "name": "Turm",            "shape": "tower",   "size": Vector3i(15, 22, 15), "max_tier": 3, "hp": 10.0,  "value": 6.0,  "cores": 4 },
-	{ "name": "Kugel",           "shape": "sphere",  "size": Vector3i(21, 21, 21), "max_tier": 4, "hp": 35.0,  "value": 15.0, "cores": 8 },
-	{ "name": "Riesenwürfel",    "shape": "cube",    "size": Vector3i(20, 15, 20), "max_tier": 4, "hp": 120.0, "value": 40.0, "cores": 16 },
+	{ "name": "Würfel",               "shape": "cube",        "size": Vector3i(14, 10, 14), "max_tier": 1, "hp": 1.0,     "value": 1.0,    "cores": 1 },
+	{ "name": "Stonehenge",           "shape": "stonehenge",  "max_tier": 1, "hp": 2.0,     "value": 1.6,    "cores": 1 },
+	{ "name": "Stufenpyramide",       "shape": "pyramid",     "size": Vector3i(25, 13, 25), "max_tier": 2, "hp": 4.0,     "value": 2.6,    "cores": 2 },
+	{ "name": "Brandenburger Tor",    "shape": "brandenburg", "max_tier": 2, "hp": 9.0,     "value": 4.5,    "cores": 3 },
+	{ "name": "Turm",                 "shape": "tower",       "size": Vector3i(15, 22, 15), "max_tier": 3, "hp": 20.0,    "value": 8.0,    "cores": 4 },
+	{ "name": "Schiefer Turm",        "shape": "pisa",        "max_tier": 3, "hp": 45.0,    "value": 14.0,   "cores": 6 },
+	{ "name": "Kolosseum",            "shape": "colosseum",   "max_tier": 3, "hp": 100.0,   "value": 25.0,   "cores": 8 },
+	{ "name": "Kugel",                "shape": "sphere",      "size": Vector3i(21, 21, 21), "max_tier": 4, "hp": 220.0,   "value": 45.0,   "cores": 11 },
+	{ "name": "Big Ben",              "shape": "bigben",      "max_tier": 4, "hp": 500.0,   "value": 80.0,   "cores": 15 },
+	{ "name": "Chichén Itzá",         "shape": "chichen",     "max_tier": 4, "hp": 1100.0,  "value": 140.0,  "cores": 20 },
+	{ "name": "Atomium",              "shape": "atomium",     "max_tier": 4, "hp": 2500.0,  "value": 250.0,  "cores": 26 },
+	{ "name": "Pagode",               "shape": "pagoda",      "max_tier": 4, "hp": 5500.0,  "value": 450.0,  "cores": 34 },
+	{ "name": "Taj Mahal",            "shape": "taj",         "max_tier": 4, "hp": 12000.0, "value": 800.0,  "cores": 44 },
+	{ "name": "Chinesische Mauer",    "shape": "wall",        "max_tier": 4, "hp": 27000.0, "value": 1400.0, "cores": 56 },
+	{ "name": "Kölner Dom",           "shape": "dom",         "max_tier": 4, "hp": 60000.0, "value": 2500.0, "cores": 72 },
+	{ "name": "Eiffelturm",           "shape": "eiffel",      "max_tier": 4, "hp": 140000.0, "value": 4500.0, "cores": 92 },
+	{ "name": "Riesenwürfel",         "shape": "cube",        "size": Vector3i(20, 15, 20), "max_tier": 4, "hp": 320000.0, "value": 8000.0, "cores": 120 },
 ]
 
 # Stufen von außen (0) nach innen (4). "frac" = Anteil am Bauwerk (bei weniger Stufen anteilig).

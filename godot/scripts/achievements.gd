@@ -26,11 +26,11 @@ const LIST := [
 	{ "id": "drones_12",    "icon": "🚁", "name": "Drohnenflotte",          "desc": "Besitze 12 Drohnen." },
 	{ "id": "milestone",    "icon": "⭐", "name": "Meilenstein",            "desc": "Bring ein Upgrade auf Stufe 25." },
 	{ "id": "full_bag",     "icon": "🧳", "name": "Vollgepackt",            "desc": "Fülle deinen Rucksack bis zum Rand." },
-	{ "id": "level_1",      "icon": "🟦", "name": "Würfel geknackt",        "desc": "Trage das erste Bauwerk ab." },
-	{ "id": "level_2",      "icon": "🔺", "name": "Pyramide abgetragen",    "desc": "Trage die Stufenpyramide ab." },
-	{ "id": "level_3",      "icon": "🗼", "name": "Turm gefällt",           "desc": "Trage den Turm ab." },
-	{ "id": "level_4",      "icon": "🔵", "name": "Kugel geplatzt",         "desc": "Trage die Kugel ab." },
-	{ "id": "level_5",      "icon": "🏆", "name": "Riesenwürfel bezwungen", "desc": "Trage alle fünf Bauwerke ab." },
+	{ "id": "level_1",      "icon": "🟦", "name": "Erster Abriss",          "desc": "Trage das erste Bauwerk ab." },
+	{ "id": "level_2",      "icon": "🔺", "name": "Weltreisender",          "desc": "Trage drei Bauwerke ab." },
+	{ "id": "level_3",      "icon": "🗼", "name": "Wahrzeichen-Jäger",      "desc": "Trage sechs Bauwerke ab." },
+	{ "id": "level_4",      "icon": "🔵", "name": "Weltwunder-Sammler",     "desc": "Trage zehn Bauwerke ab." },
+	{ "id": "level_5",      "icon": "🏆", "name": "Alles abgetragen",       "desc": "Trage alle 17 Bauwerke ab." },
 	{ "id": "prestige",     "icon": "⚛️", "name": "Reaktor-Neustart",       "desc": "Führe einen Reaktor-Neustart durch." },
 	{ "id": "time_1h",      "icon": "⏳", "name": "Ausdauer",               "desc": "Spiele insgesamt eine Stunde." },
 ]
@@ -68,10 +68,10 @@ static func reached(id: String, g) -> bool:
 			return false
 		"full_bag": return cnt.call("full_bag") >= 1
 		"level_1": return cnt.call("levels") >= 1
-		"level_2": return cnt.call("levels") >= 2
-		"level_3": return cnt.call("levels") >= 3
-		"level_4": return cnt.call("levels") >= 4
-		"level_5": return cnt.call("levels") >= 5
+		"level_2": return cnt.call("levels") >= 3
+		"level_3": return cnt.call("levels") >= 6
+		"level_4": return cnt.call("levels") >= 10
+		"level_5": return cnt.call("levels") >= 17
 		"prestige": return cnt.call("prestiges") >= 1
 		"time_1h": return g.play_time >= 3600
 	return false
