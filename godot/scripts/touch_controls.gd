@@ -47,7 +47,7 @@ func _make_button(text: String, size_: Vector2, font: int, style: StyleBoxFlat) 
 	return p
 
 func _ready() -> void:
-	set_anchors_preset(Control.PRESET_FULL_RECT)
+	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	btn_jump = _make_button("⤒", Vector2(120, 120), 54, glass(60))
 	btn_pause = _make_button("❚❚", Vector2(76, 76), 28, glass(38))
@@ -56,15 +56,19 @@ func _ready() -> void:
 	action_label = btn_action.get_child(0)
 	action_label.add_theme_color_override("font_color", Color.WHITE)
 	btn_action.visible = false
-	resized.connect(_layout)
+	get_viewport().size_changed.connect(_layout)
 	_layout()
 
+# Bildschirmgröße in UI-Einheiten (nicht self.size: die kann beim Start noch 0 sein)
+func _screen() -> Vector2:
+	return get_viewport_rect().size
+
 func _layout() -> void:
-	# Abstand zum Rand inkl. Kamera-Aussparung (Safe Area)
+	var scr := _screen()
 	var m := 28.0
-	btn_jump.position = Vector2(size.x - 120 - m - 8, size.y - 120 - m)
-	btn_action.position = Vector2(size.x - 250 - 170, size.y - 84 - m - 18)
-	btn_pause.position = Vector2(size.x - 76 - m, m - 8)
+	btn_jump.position = Vector2(scr.x - 120 - m - 8, scr.y - 120 - m)
+	btn_action.position = Vector2(scr.x - 250 - 170, scr.y - 84 - m - 18)
+	btn_pause.position = Vector2(scr.x - 76 - m, m - 8)
 
 func set_action(text: String) -> void:
 	btn_action.visible = text != ""
@@ -96,7 +100,7 @@ func _input(e: InputEvent) -> void:
 				b.modulate = Color(0.85, 0.85, 0.85)
 				if b == btn_jump:
 					player.jump_held = true
-			elif e.position.x < size.x * 0.45 and stick_id < 0:
+			elif e.position.x < _screen().x * 0.45 and stick_id < 0:
 				stick_id = e.index
 				stick_center = e.position
 				stick_pos = e.position

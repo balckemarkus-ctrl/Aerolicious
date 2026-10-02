@@ -10,6 +10,8 @@ const OFF := 64
 const DIM := 128
 const NEIGHBORS := [Vector3i(1, 0, 0), Vector3i(-1, 0, 0), Vector3i(0, 1, 0), Vector3i(0, -1, 0), Vector3i(0, 0, 1), Vector3i(0, 0, -1)]
 const FLASH := Color(1, 1, 1)
+# Modell ist 0,97 m groß; leicht vergrößert stoßen die Blöcke lückenlos aneinander (keine Durchblick-Fugen)
+const BLOCK_BASIS := Basis(Vector3(1.031, 0, 0), Vector3(0, 1.031, 0), Vector3(0, 0, 1.031))
 
 var n := Config.TOTAL_BLOCKS
 var grid := PackedInt32Array()
@@ -141,7 +143,7 @@ func _show_block(b: int) -> void:
 	var slot := list.size()
 	list.append(b)
 	inst[b] = slot
-	mms[t].set_instance_transform(slot, Transform3D(Basis(), center(b)))
+	mms[t].set_instance_transform(slot, Transform3D(BLOCK_BASIS, center(b)))
 	mms[t].set_instance_color(slot, base_color(b))
 	mms[t].visible_instance_count = list.size()
 
@@ -155,7 +157,7 @@ func _hide_block(b: int) -> void:
 	if last != b:
 		list[slot] = last
 		inst[last] = slot
-		mms[t].set_instance_transform(slot, Transform3D(Basis(), center(last)))
+		mms[t].set_instance_transform(slot, Transform3D(BLOCK_BASIS, center(last)))
 		mms[t].set_instance_color(slot, FLASH if flashes.has(last) else base_color(last))
 	inst[b] = -1
 	mms[t].visible_instance_count = list.size()
