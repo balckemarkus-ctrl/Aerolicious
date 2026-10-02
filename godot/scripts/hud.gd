@@ -365,10 +365,12 @@ func _build_shop() -> void:
 	var scroll := ScrollContainer.new()
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	scroll.scroll_deadzone = 12 # ab 12 Bildpunkten Wischweg wird gescrollt statt getippt
 	v.add_child(scroll)
 	shop_grid = GridContainer.new()
 	shop_grid.columns = 3
 	shop_grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	shop_grid.mouse_filter = Control.MOUSE_FILTER_PASS
 	shop_grid.add_theme_constant_override("h_separation", 12)
 	shop_grid.add_theme_constant_override("v_separation", 12)
 	scroll.add_child(shop_grid)
@@ -387,7 +389,10 @@ func render_shop(credits: float, up: Dictionary) -> void:
 		sb.shadow_size = 0
 		card.add_theme_stylebox_override("panel", sb)
 		card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		# Wischbewegungen an den Scroll-Bereich weiterreichen (sonst scrollt es nur zwischen den Karten)
+		card.mouse_filter = Control.MOUSE_FILTER_PASS
 		var cv := VBoxContainer.new()
+		cv.mouse_filter = Control.MOUSE_FILTER_PASS
 		cv.add_theme_constant_override("separation", 4)
 		card.add_child(cv)
 		cv.add_child(label("%s  %s" % [u.icon, u.name], 21))
@@ -402,6 +407,7 @@ func render_shop(credits: float, up: Dictionary) -> void:
 		var b := button("Maximal" if maxed else "%s Credits" % fmt(cost), 19)
 		b.custom_minimum_size = Vector2(0, 52)
 		b.disabled = maxed or credits < cost
+		b.mouse_filter = Control.MOUSE_FILTER_PASS
 		b.pressed.connect(func(): buy_pressed.emit(u.id))
 		cv.add_child(b)
 		shop_grid.add_child(card)
