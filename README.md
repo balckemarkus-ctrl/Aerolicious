@@ -49,3 +49,8 @@ npm run preview  # Build lokal ansehen
 | `src/effects.js` | Projektile, Strahl, Funken, Explosionsringe, Drohnen-Laser |
 | `src/audio.js` | Synthetisierte Soundeffekte und Ambient-Akkorde |
 | `src/main.js` | Spielschleife, Waffen, Drohnen, HUD, Shop, Speichern |
+
+## Trailer
+
+`media/trailer.mp4` (48 s, 1280×720) wird im Trailer-Modus (`index.html?trailer`) Bild für Bild gerendert.
+Neu erzeugen: `tools/trailer/make.sh` (benötigt Node, Python 3, ffmpeg und Playwright mit Chromium).
