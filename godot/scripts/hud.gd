@@ -325,7 +325,7 @@ func _build_hud() -> void:
 func _build_menu() -> void:
 	menu = _overlay()
 	var box := _centered_panel(menu)
-	box.add_child(_title("Aero Shards"))
+	box.add_child(_title("Wonder Wreckers"))
 	var sub := label("Ein entspannter Block-Breaker auf einer sonnigen Insel.", 22)
 	sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	box.add_child(sub)
@@ -442,7 +442,7 @@ func _build_shop() -> void:
 	panel.add_child(v)
 	var head := HBoxContainer.new()
 	head.add_theme_constant_override("separation", 20)
-	var t := label("Aero-Shop", 38, NEON)
+	var t := label("Shop", 38, NEON)
 	t.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	head.add_child(t)
 	head.add_child(Ball.new(PEARL, 28))

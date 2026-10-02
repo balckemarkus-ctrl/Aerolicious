@@ -13,9 +13,9 @@ npm run build    # Produktions-Build nach dist/
 npm run preview  # Build lokal ansehen
 ```
 
-## Godot-Version (in Arbeit)
+## Wonder Wreckers – Godot-Version (in Arbeit)
 
-Die native Version entsteht in `godot/` (Godot 4.7, Renderer „Mobile“) mit Modellen aus Blender (`blender/`).
+Die native Version heißt **Wonder Wreckers** und entsteht in `godot/` (Godot 4.7, Renderer „Mobile“) mit Modellen aus Blender (`blender/`).
 Plan und Fortschritt: `docs/PLAN_GODOT.md`.
 
 ## Android-App (Capacitor)

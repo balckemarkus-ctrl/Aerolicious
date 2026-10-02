@@ -38,7 +38,7 @@ const AMMO := [
 	{ "id": "bubble", "name": "Blase",         "color": Color("5fd4ff"), "unlock": "" },
 	{ "id": "fizz",   "name": "Fizz-Granate",  "color": Color("9dff5c"), "unlock": "fizz" },
 	{ "id": "beam",   "name": "Prisma-Strahl", "color": Color("ff7ad9"), "unlock": "beam" },
-	{ "id": "nova",   "name": "Aero-Nova",     "color": Color("ffc94a"), "unlock": "nova" },
+	{ "id": "nova",   "name": "Super-Nova",     "color": Color("ffc94a"), "unlock": "nova" },
 ]
 
 const TABS := ["Waffe", "Sammeln", "Drohnen"]
@@ -56,7 +56,7 @@ const UPGRADES := [
 	{ "id": "fizzPower", "tab": 0, "icon": "🟢", "name": "Fizz-Ladung",         "desc": "+15 % Schaden und Radius der Fizz-Granate", "base": 800,    "growth": 1.25, "max": 30, "needs": "fizz" },
 	{ "id": "beam",      "tab": 0, "icon": "🌈", "name": "Prisma-Strahl",       "desc": "Neue Munition: durchdringender Strahl [3]", "base": 6000,   "growth": 1.0,  "max": 1 },
 	{ "id": "beamPower", "tab": 0, "icon": "🔷", "name": "Prisma-Fokus",        "desc": "+15 % Strahlschaden, trifft tiefer",        "base": 9000,   "growth": 1.25, "max": 30, "needs": "beam" },
-	{ "id": "nova",      "tab": 0, "icon": "☀️", "name": "Aero-Nova",           "desc": "Neue Munition: riesige Explosion [4]",      "base": 60000,  "growth": 1.0,  "max": 1 },
+	{ "id": "nova",      "tab": 0, "icon": "☀️", "name": "Super-Nova",           "desc": "Neue Munition: riesige Explosion [4]",      "base": 60000,  "growth": 1.0,  "max": 1 },
 	{ "id": "novaCool",  "tab": 0, "icon": "⏱️", "name": "Nova-Ladezeit",       "desc": "−5 % Ladezeit und +10 % Schaden der Nova",  "base": 90000,  "growth": 1.3,  "max": 20, "needs": "nova" },
 	# Sammeln
 	{ "id": "value",     "tab": 1, "icon": "💎", "name": "Splitter-Wert",       "desc": "+10 % Perlen je Stufe, ×2 alle 25 Stufen",  "base": 20,     "growth": 1.18, "max": 150 },
@@ -69,7 +69,7 @@ const UPGRADES := [
 	{ "id": "goldRush",  "tab": 1, "icon": "✨", "name": "Goldrausch",          "desc": "+25 % Perlen aus Goldblöcken",              "base": 300,    "growth": 1.3,  "max": 25 },
 	{ "id": "autoRecycle","tab": 1, "icon": "📡", "name": "Fern-Konverter",     "desc": "Splitter werden sofort in Perlen getauscht", "base": 150000, "growth": 1.0, "max": 1 },
 	# Drohnen
-	{ "id": "drones",    "tab": 2, "icon": "🛸", "name": "Aero-Drohne",         "desc": "Eine weitere Helfer-Drohne",                "base": 1500,   "growth": 2.4,  "max": 12 },
+	{ "id": "drones",    "tab": 2, "icon": "🛸", "name": "Helfer-Drohne",         "desc": "Eine weitere Helfer-Drohne",                "base": 1500,   "growth": 2.4,  "max": 12 },
 	{ "id": "droneDamage","tab": 2, "icon": "🔫", "name": "Drohnen-Laser",      "desc": "+30 % Drohnenschaden, ×2 alle 25 Stufen",   "base": 2000,   "growth": 1.2,  "max": 100, "needs": "drones" },
 	{ "id": "droneSpeed","tab": 2, "icon": "🔋", "name": "Drohnen-Turbo",       "desc": "+8 % Feuertempo der Drohnen",               "base": 2500,   "growth": 1.28, "max": 30, "needs": "drones" },
 ]

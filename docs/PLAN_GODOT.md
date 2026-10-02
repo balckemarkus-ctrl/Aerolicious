@@ -1,4 +1,4 @@
-# Aero Shards in Godot + Blender – Projektplan
+# Wonder Wreckers (Godot + Blender) – Projektplan
 
 Ziel: Die Browser-Version (Three.js, `src/`) dient als Prototyp und Vorlage. Daraus entsteht eine
 native Version mit **Godot 4.7** (Spiel) und **Blender 5.2** (Modelle), zuerst für **Android**,
@@ -10,7 +10,7 @@ schneller, sparsamer und ohne die WebView dazwischen.
 
 ## Eigenständigkeit
 
-Aero Shards ist ein eigenes Spiel. Allgemeine Spielidee (Blöcke zerschießen, sammeln, aufrüsten) und ein
+Wonder Wreckers (früher Arbeitstitel „Aero Shards“) ist ein eigenes Spiel. Allgemeine Spielidee (Blöcke zerschießen, sammeln, aufrüsten) und ein
 sonniger Wiesen-Look sind frei; alles Kennzeichnende ist eigenständig:
 
 - **Sci-Fi-Industriehalle** mit Neon statt Wiese.
