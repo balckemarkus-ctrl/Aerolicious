@@ -14,6 +14,7 @@ signal prestige_pressed
 signal achievements_pressed
 signal level_selected(index: int)
 signal slot_selected(n: int)
+signal slot_deleted(n: int)
 signal skins_pressed
 signal skin_selected(kind: String, index: int)
 
@@ -81,8 +82,12 @@ var prestige_btn: Button
 var cores_label: Label
 var level_buttons: Array[Button] = []
 var slot_buttons: Array[Button] = []
+var slot_delete_buttons: Array[Button] = []
 var skin_panel: Control
 var skin_box: VBoxContainer
+var preview_gun: Node3D
+var preview_blocks: MultiMesh
+var preview_gun_index := 0
 var ach_panel: Control
 var ach_grid: GridContainer
 var ach_title: Label
@@ -423,15 +428,26 @@ func _build_menu() -> void:
 	var spacer := Control.new()
 	spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	left.add_child(spacer)
-	left.add_child(caption("Spielstand"))
+	var slots_box := VBoxContainer.new()
+	slots_box.add_theme_constant_override("separation", 6)
+	slots_box.add_child(caption("Spielstand"))
 	for n in range(1, 4):
+		var row := HBoxContainer.new()
+		row.add_theme_constant_override("separation", 6)
 		var sb_btn := button("", 14, false)
-		sb_btn.custom_minimum_size = Vector2(0, 44)
+		sb_btn.custom_minimum_size = Vector2(0, 40)
+		sb_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		sb_btn.alignment = HORIZONTAL_ALIGNMENT_LEFT
 		sb_btn.clip_text = true
 		sb_btn.pressed.connect(func(): slot_selected.emit(n))
-		left.add_child(sb_btn)
+		row.add_child(sb_btn)
+		var del := button("Löschen", 13, false)
+		del.custom_minimum_size = Vector2(110, 40)
+		del.pressed.connect(_on_delete_slot.bind(n))
+		row.add_child(del)
+		slots_box.add_child(row)
 		slot_buttons.append(sb_btn)
+		slot_delete_buttons.append(del)
 	reset_btn = button("Neues Spiel", 16, false)
 	reset_btn.custom_minimum_size = Vector2(0, 46)
 	reset_btn.visible = false
@@ -464,6 +480,7 @@ func _build_menu() -> void:
 		lb.pressed.connect(func(): level_selected.emit(i))
 		grid.add_child(lb)
 		level_buttons.append(lb)
+	right.add_child(slots_box)
 	right.add_child(caption("Steuerung"))
 	var keys := label(
 		"Linke Seite: Stick zum Laufen, ganz ausgelenkt rennen.  Rechte Seite: Daumen auflegen zum Zielen und Feuern.\n"
@@ -494,10 +511,24 @@ func set_levels(current: int, unlocked: int) -> void:
 			sb.set_border_width_all(2)
 			b.add_theme_stylebox_override("normal", sb)
 
+var _delete_armed := 0
+
+# Löschen erst beim zweiten Tippen (Sicherheitsabfrage ohne Systemdialog)
+func _on_delete_slot(n: int) -> void:
+	if _delete_armed != n:
+		_delete_armed = n
+		for i in slot_delete_buttons.size():
+			slot_delete_buttons[i].text = "Sicher?" if i + 1 == n else "Löschen"
+		return
+	_delete_armed = 0
+	slot_delete_buttons[n - 1].text = "Löschen"
+	slot_deleted.emit(n)
+
 func set_slots(current: int, summaries: Array) -> void:
 	for i in slot_buttons.size():
 		var b := slot_buttons[i]
 		b.text = "%d   %s" % [i + 1, summaries[i]]
+		slot_delete_buttons[i].disabled = summaries[i] == "Leer"
 		if i + 1 == current:
 			var sb := style(6, 1.0, Color("0f2a3a"))
 			sb.border_color = NEON
@@ -688,16 +719,98 @@ func _build_achievements() -> void:
 func _build_skins() -> void:
 	skin_panel = _overlay()
 	var box := _centered_panel(skin_panel, 0.92)
+	var cols := HBoxContainer.new()
+	cols.add_theme_constant_override("separation", 24)
+	box.add_child(cols)
+	cols.add_child(_build_preview())
 	skin_box = VBoxContainer.new()
 	skin_box.add_theme_constant_override("separation", 10)
-	box.add_child(skin_box)
+	cols.add_child(skin_box)
 	var close := button("Schließen", 20, false)
 	close.custom_minimum_size = Vector2(0, 54)
 	close.pressed.connect(func(): skin_panel.visible = false)
 	box.add_child(close)
 	skin_panel.visible = false
 
+# 3D-Vorschau: drehender Blaster und fünf Blöcke in der Palette (eigene kleine 3D-Welt)
+func _build_preview() -> Control:
+	var frame := PanelContainer.new()
+	var sb := style(6, 0.95, Color("060b14"))
+	frame.add_theme_stylebox_override("panel", sb)
+	var svc := SubViewportContainer.new()
+	svc.stretch = true
+	svc.custom_minimum_size = Vector2(340, 280)
+	frame.add_child(svc)
+	var vp := SubViewport.new()
+	vp.own_world_3d = true
+	vp.transparent_bg = true
+	vp.msaa_3d = Viewport.MSAA_2X
+	svc.add_child(vp)
+	var env := Environment.new()
+	env.background_mode = Environment.BG_CLEAR_COLOR
+	env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
+	env.ambient_light_color = Color("8fa6c8")
+	env.ambient_light_energy = 0.7
+	env.tonemap_mode = Environment.TONE_MAPPER_ACES
+	env.glow_enabled = true
+	env.glow_intensity = 0.6
+	var we := WorldEnvironment.new()
+	we.environment = env
+	vp.add_child(we)
+	var sun := DirectionalLight3D.new()
+	sun.rotation_degrees = Vector3(-40, -30, 0)
+	sun.light_energy = 1.3
+	vp.add_child(sun)
+	var rim := OmniLight3D.new()
+	rim.position = Vector3(-0.6, 0.3, -0.6)
+	rim.light_color = NEON
+	rim.light_energy = 2.0
+	rim.omni_range = 3.0
+	vp.add_child(rim)
+	var cam := Camera3D.new()
+	cam.position = Vector3(0, 0.1, 1.05)
+	cam.fov = 40
+	vp.add_child(cam)
+	cam.look_at(Vector3(0, -0.03, 0))
+	preview_gun = World.model("blaster")
+	preview_gun.position = Vector3(0, 0.07, 0)
+	preview_gun.scale = Vector3.ONE * 1.25
+	vp.add_child(preview_gun)
+	var mat := ShaderMaterial.new()
+	mat.shader = load("res://shaders/block.gdshader")
+	var mesh := World.first_mesh(World.model("block")).duplicate() as Mesh
+	mesh.surface_set_material(0, mat)
+	preview_blocks = MultiMesh.new()
+	preview_blocks.transform_format = MultiMesh.TRANSFORM_3D
+	preview_blocks.use_colors = true
+	preview_blocks.use_custom_data = true
+	preview_blocks.mesh = mesh
+	preview_blocks.instance_count = 5
+	var mmi := MultiMeshInstance3D.new()
+	mmi.multimesh = preview_blocks
+	vp.add_child(mmi)
+	for t in 5:
+		var basis := Basis(Vector3.UP, 0.5).scaled(Vector3.ONE * 0.11)
+		preview_blocks.set_instance_transform(t, Transform3D(basis, Vector3(-0.3 + t * 0.15, -0.16, 0.05)))
+		preview_blocks.set_instance_custom_data(t, Color(1.0 if t % 2 == 1 else 0.0, 0, 0, 0))
+	return frame
+
+func preview_skin(kind: String, i: int) -> void:
+	if kind == "gun":
+		preview_gun_index = i
+		World.paint_gun(preview_gun, Config.GUN_SKINS[i])
+	else:
+		var colors: Array = Config.PALETTES[i].colors
+		for t in 5:
+			preview_blocks.set_instance_color(t, Color(colors[t]))
+
+func _process(delta: float) -> void:
+	if preview_gun and skin_panel.visible:
+		preview_gun.rotation.y += delta * 0.8
+
 func show_skins(gun: int, pal: int, gun_open: Array, pal_open: Array) -> void:
+	preview_skin("gun", gun)
+	preview_skin("palette", pal)
 	for c in skin_box.get_children():
 		c.queue_free()
 	skin_box.add_child(head("SKINS", 30, NEON))
@@ -710,7 +823,7 @@ func show_skins(gun: int, pal: int, gun_open: Array, pal_open: Array) -> void:
 			var it: Dictionary = items[i]
 			var open: bool = section[3][i]
 			var b := button(it.name if open else "%s\n%s" % [it.name, Config.req_text(it)], 15, false)
-			b.custom_minimum_size = Vector2(180, 64)
+			b.custom_minimum_size = Vector2(138, 64)
 			if i == section[2]:
 				var sb := style(6, 1.0, Color("0f2a3a"))
 				sb.border_color = NEON

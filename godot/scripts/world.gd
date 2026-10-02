@@ -30,6 +30,27 @@ static func set_shadows(n: Node, on: bool) -> void:
 	for c in n.get_children():
 		set_shadows(c, on)
 
+# Blaster-Lackierung: Materialien "Body", "Dark" und "Accent" umfärben (für Spiel und Skin-Vorschau)
+static func paint_gun(n: Node, sk: Dictionary) -> void:
+	if n is MeshInstance3D:
+		for i in n.mesh.get_surface_count():
+			var m: Material = n.mesh.surface_get_material(i)
+			if m == null or not (m.resource_name in ["Body", "Dark", "Accent"]):
+				continue
+			var c := (m as StandardMaterial3D).duplicate() as StandardMaterial3D
+			match m.resource_name:
+				"Body":
+					c.albedo_color = Color(sk.body)
+					c.metallic = sk.metal
+				"Dark":
+					c.albedo_color = Color(sk.dark)
+				"Accent":
+					c.albedo_color = Color(sk.accent)
+					c.emission = Color(sk.accent)
+			n.set_surface_override_material(i, c)
+	for ch in n.get_children():
+		paint_gun(ch, sk)
+
 static func clamp_to_hall(p: Vector3) -> Vector3:
 	return Vector3(clampf(p.x, -HALL_HALF, HALL_HALF), p.y, clampf(p.z, -HALL_HALF, HALL_HALF))
 

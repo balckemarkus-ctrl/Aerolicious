@@ -89,6 +89,15 @@ static func slot_summary(n: int) -> String:
 	var lv := clampi(int(d.get("level", 0)), 0, Config.LEVELS.size() - 1)
 	return "%s · %s Perlen · %d Kerne" % [Config.LEVELS[lv].name, Hud.fmt(float(d.get("credits", 0))), int(d.get("cores", 0))]
 
+func delete_slot(n: int) -> void:
+	DirAccess.remove_absolute(ProjectSettings.globalize_path("user://save_%d.json" % n))
+	if n == slot:
+		Config.palette = 0
+		get_tree().reload_current_scene() # aktueller Spielstand: frisch beginnen
+		return
+	hud.set_slots(slot, range(1, SLOTS + 1).map(slot_summary))
+	hud.toast("Spielstand %d gelöscht." % n)
+
 func select_slot(n: int) -> void:
 	if n == slot:
 		return
@@ -149,6 +158,7 @@ func _ready() -> void:
 	hud.prestige_pressed.connect(prestige)
 	hud.level_selected.connect(select_level)
 	hud.slot_selected.connect(select_slot)
+	hud.slot_deleted.connect(delete_slot)
 	hud.skins_pressed.connect(_show_skins)
 	hud.skin_selected.connect(select_skin)
 	hud.set_slots(slot, range(1, SLOTS + 1).map(slot_summary))
@@ -418,8 +428,9 @@ func _show_skins() -> void:
 
 func select_skin(kind: String, i: int) -> void:
 	var item: Dictionary = (Config.GUN_SKINS if kind == "gun" else Config.PALETTES)[i]
+	hud.preview_skin(kind, i)
 	if not skin_unlocked(item):
-		hud.toast("Noch gesperrt: " + Config.req_text(item))
+		hud.toast("Vorschau. Freischalten: " + Config.req_text(item))
 		return
 	if kind == "gun":
 		skin_gun = i
@@ -431,30 +442,8 @@ func select_skin(kind: String, i: int) -> void:
 		save_game()
 		get_tree().reload_current_scene() # Bauwerk mit neuen Farben neu aufbauen
 
-# Lackierung des Blasters: Materialien "Body", "Dark", "Accent" und "Chrome" umfärben
 func apply_gun_skin() -> void:
-	var sk: Dictionary = Config.GUN_SKINS[skin_gun]
-	_paint(gun, sk)
-
-func _paint(n: Node, sk: Dictionary) -> void:
-	if n is MeshInstance3D:
-		for i in n.mesh.get_surface_count():
-			var m: Material = n.mesh.surface_get_material(i)
-			if m == null or not (m.resource_name in ["Body", "Dark", "Accent", "Chrome"]):
-				continue
-			var c := (m as StandardMaterial3D).duplicate() as StandardMaterial3D
-			match m.resource_name:
-				"Body":
-					c.albedo_color = Color(sk.body)
-					c.metallic = sk.metal
-				"Dark":
-					c.albedo_color = Color(sk.dark)
-				"Accent":
-					c.albedo_color = Color(sk.accent)
-					c.emission = Color(sk.accent)
-			n.set_surface_override_material(i, c)
-	for ch in n.get_children():
-		_paint(ch, sk)
+	World.paint_gun(gun, Config.GUN_SKINS[skin_gun])
 
 # ---------- Munition und Waffe ----------
 
