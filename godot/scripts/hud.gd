@@ -11,6 +11,7 @@ signal continue_pressed
 signal ammo_selected(index: int)
 signal next_level_pressed
 signal prestige_pressed
+signal achievements_pressed
 
 const INK := Color("e6f4ff")        # Schrift: helles Blau-Weiß
 const NEON := Color("2fe8ff")
@@ -48,6 +49,9 @@ var _shop_credits_val := 0.0
 var _shop_up := {}
 var prestige_btn: Button
 var cores_label: Label
+var ach_panel: Control
+var ach_grid: GridContainer
+var ach_title: Label
 var win: Control
 var win_stats: Label
 var win_sub: Label
@@ -179,6 +183,7 @@ func _init(touch: bool) -> void:
 	_build_menu()
 	_build_shop()
 	_build_win()
+	_build_achievements()
 
 func _build_hud() -> void:
 	var cross := Crosshair.new()
@@ -360,6 +365,12 @@ func _build_menu() -> void:
 	prestige_btn.pressed.connect(_on_prestige)
 	prow.add_child(prestige_btn)
 	box.add_child(prow)
+	var arow := CenterContainer.new()
+	var ach_btn := button("🏆 Erfolge", 20, false)
+	ach_btn.custom_minimum_size = Vector2(260, 56)
+	ach_btn.pressed.connect(func(): achievements_pressed.emit())
+	arow.add_child(ach_btn)
+	box.add_child(arow)
 
 func _on_reset() -> void:
 	# Zweimal tippen zum Bestätigen (keine System-Dialoge nötig)
@@ -506,6 +517,66 @@ func render_shop(credits: float, up: Dictionary) -> void:
 		b.pressed.connect(func(): buy_pressed.emit(u.id, buy_amount))
 		cv.add_child(b)
 		shop_grid.add_child(card)
+
+func _build_achievements() -> void:
+	ach_panel = _overlay()
+	var margin := MarginContainer.new()
+	margin.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	for side in ["left", "right", "top", "bottom"]:
+		margin.add_theme_constant_override("margin_" + side, 28)
+	ach_panel.add_child(margin)
+	var panel := PanelContainer.new()
+	panel.add_theme_stylebox_override("panel", style(26, 0.85))
+	margin.add_child(panel)
+	var v := VBoxContainer.new()
+	v.add_theme_constant_override("separation", 12)
+	panel.add_child(v)
+	var head := HBoxContainer.new()
+	ach_title = label("", 34, NEON)
+	ach_title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	head.add_child(ach_title)
+	var close := button("Schließen", 22, false)
+	close.custom_minimum_size = Vector2(200, 60)
+	close.pressed.connect(func(): ach_panel.visible = false)
+	head.add_child(close)
+	v.add_child(head)
+	var scroll := ScrollContainer.new()
+	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	scroll.scroll_deadzone = 12
+	v.add_child(scroll)
+	ach_grid = GridContainer.new()
+	ach_grid.columns = 3
+	ach_grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	ach_grid.mouse_filter = Control.MOUSE_FILTER_PASS
+	ach_grid.add_theme_constant_override("h_separation", 10)
+	ach_grid.add_theme_constant_override("v_separation", 10)
+	scroll.add_child(ach_grid)
+	ach_panel.visible = false
+
+func show_achievements(achieved: Array) -> void:
+	ach_title.text = "🏆 Erfolge  %d / %d   (+%d %% Schaden und Perlen)" % [achieved.size(), Achievements.LIST.size(), achieved.size()]
+	for c in ach_grid.get_children():
+		c.queue_free()
+	for a in Achievements.LIST:
+		var done: bool = a.id in achieved
+		var card := PanelContainer.new()
+		var sb := style(12, 0.9 if done else 0.5, Color("142033"))
+		if done:
+			sb.border_color = Color("ffc94a")
+		card.add_theme_stylebox_override("panel", sb)
+		card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		card.mouse_filter = Control.MOUSE_FILTER_PASS
+		var cv := VBoxContainer.new()
+		cv.mouse_filter = Control.MOUSE_FILTER_PASS
+		cv.add_child(label("%s  %s" % [a.icon if done else "🔒", a.name], 20, Color("ffc94a") if done else INK))
+		var d := label(a.desc, 15)
+		d.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		d.add_theme_color_override("font_color", Color(INK, 0.75))
+		cv.add_child(d)
+		card.add_child(cv)
+		ach_grid.add_child(card)
+	ach_panel.visible = true
 
 func _build_win() -> void:
 	win = _overlay()

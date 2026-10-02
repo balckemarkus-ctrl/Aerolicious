@@ -38,6 +38,9 @@ var level := 0
 var cores := 0
 var run_earned := 0.0   # seit dem letzten Reaktor-Neustart verdient (für Kerne)
 var shots := 0
+var counters := {}          # Zähler für Erfolge (zerstörte Blöcke, Gold, Explosionen, ...)
+var achieved: Array = []    # freigeschaltete Erfolge (IDs)
+var ach_timer := 0.5
 var explosions: Array = [] # [Position, Restzeit]: Explosivblöcke zünden kurz versetzt (Kettenreaktion)
 var S := Config.stats({}, 0)
 
@@ -97,6 +100,7 @@ func _ready() -> void:
 	hud.shop_closed.connect(close_shop)
 	hud.buy_pressed.connect(buy)
 	hud.prestige_pressed.connect(prestige)
+	hud.achievements_pressed.connect(func(): hud.show_achievements(achieved))
 	hud.continue_pressed.connect(func():
 		win_open = false
 		hud.win.visible = false
@@ -115,6 +119,7 @@ func _ready() -> void:
 			touch.tap_targets.append([hud.ammo_slots[i], set_ammo.bind(i)])
 
 	var had_save := false if autotest else load_game()
+	S = Config.stats(up, cores, achieved.size())
 	set_ammo(ammo if unlocked(ammo) else 0)
 	if touch:
 		touch.set_muted(sfx.muted)
@@ -203,7 +208,7 @@ func save_game() -> void:
 	if f == null:
 		return
 	f.store_string(JSON.stringify({
-		"v": 1, "level": level, "cores": cores, "run_earned": run_earned, "shots": shots, "chunk": chunk.serialize(), "credits": credits, "earned": earned, "inv": inv, "up": up,
+		"v": 1, "level": level, "cores": cores, "run_earned": run_earned, "shots": shots, "counters": counters, "achieved": achieved, "chunk": chunk.serialize(), "credits": credits, "earned": earned, "inv": inv, "up": up,
 		"ammo": ammo, "play_time": play_time, "won": won, "player": player.serialize(), "muted": sfx.muted,
 	}))
 
@@ -223,12 +228,14 @@ func load_game() -> bool:
 	cores = int(d.get("cores", 0))
 	run_earned = float(d.get("run_earned", earned))
 	shots = int(d.get("shots", 0))
+	counters = d.get("counters", {})
+	achieved = d.get("achieved", [])
 	play_time = d.play_time
 	won = d.won
 	if d.get("player") != null:
 		player.restore(d.player)
 	sfx.set_muted(d.get("muted", false))
-	S = Config.stats(up, cores)
+	S = Config.stats(up, cores, achieved.size())
 	return true
 
 func next_level() -> void:
@@ -237,7 +244,7 @@ func next_level() -> void:
 	won = false
 	var f := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
 	f.store_string(JSON.stringify({
-		"v": 1, "level": level, "cores": cores, "run_earned": run_earned, "shots": shots, "chunk": "", "credits": credits, "earned": earned, "inv": inv, "up": up,
+		"v": 1, "level": level, "cores": cores, "run_earned": run_earned, "shots": shots, "counters": counters, "achieved": achieved, "chunk": "", "credits": credits, "earned": earned, "inv": inv, "up": up,
 		"ammo": ammo, "play_time": play_time, "won": false, "player": null, "muted": sfx.muted,
 	}))
 	f.close()
@@ -342,12 +349,21 @@ func hit_block(b: int, dmg: float) -> void:
 	var crit: bool = randf() < S.crit_chance
 	if crit:
 		dmg *= S.crit_mult
+		count("crits")
 	numbers.show_number(chunk.center(b) - last_dir * 0.6, dmg * 10.0, crit)
 	if not chunk.damage(b, dmg):
 		sfx.hit()
 
+func count(key: String, n := 1) -> void:
+	counters[key] = counters.get(key, 0) + n
+
 func _on_block_broken(b: int, t: int) -> void:
 	var p := chunk.center(b)
+	count("broken")
+	if chunk.gold[b]: count("gold")
+	if chunk.kind[b] == 1: count("boom")
+	if chunk.kind[b] == 2: count("crystal")
+	if chunk.striped(b) > 0.5: count("armor")
 	sfx.break_block(t)
 	if chunk.gold[b]:
 		var bonus: float = tier_value(t) * 25.0 * S.gold_mult
@@ -494,6 +510,7 @@ func can_collect(_tier: int) -> bool:
 	if time - last_full_toast > 5.0:
 		last_full_toast = time
 		hud.toast("🎒 Rucksack voll! Ab zum Konverter.")
+		count("full_bag")
 	return false
 
 func collect(tier: int) -> void:
@@ -533,7 +550,7 @@ func buy(id: String, amount := 1) -> void:
 		return
 	credits -= cost
 	up[id] = lvl + n
-	S = Config.stats(up, cores)
+	S = Config.stats(up, cores, achieved.size())
 	sfx.play("buy")
 	_sync_drones()
 	for i in Config.AMMO.size():
@@ -550,9 +567,11 @@ func prestige() -> void:
 		hud.toast("Noch zu wenig verdient für einen Neustart.")
 		return
 	cores += gain
+	count("prestiges")
+	_check_achievements()
 	var f := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
 	f.store_string(JSON.stringify({
-		"v": 1, "level": 0, "cores": cores, "run_earned": 0.0, "shots": shots, "chunk": "", "credits": 0.0,
+		"v": 1, "level": 0, "cores": cores, "run_earned": 0.0, "shots": shots, "counters": counters, "achieved": achieved, "chunk": "", "credits": 0.0,
 		"earned": earned, "inv": [0, 0, 0, 0, 0], "up": {}, "ammo": 0, "play_time": play_time, "won": false,
 		"player": null, "muted": sfx.muted,
 	}))
@@ -619,12 +638,22 @@ func _update_explosions(dt: float) -> void:
 		numbers.show_number(p, dmg * 10.0, true)
 		chunk.damage_sphere(p, 2.6, dmg)
 
+func _check_achievements() -> void:
+	for a in Achievements.LIST:
+		if a.id in achieved or not Achievements.reached(a.id, self):
+			continue
+		achieved.append(a.id)
+		S = Config.stats(up, cores, achieved.size())
+		hud.toast("🏆 Erfolg: %s  (+1 %% Schaden und Perlen)" % a.name)
+		sfx.play("buy", 1.25)
+
 func _check_win() -> void:
 	if won or chunk.alive_count > 0:
 		return
 	won = true
+	count("levels")
 	cores += Config.LEVELS[level].cores
-	S = Config.stats(up, cores)
+	S = Config.stats(up, cores, achieved.size())
 	hud.toast("⚛️ Bauwerk geschafft: +%d Kerne (dauerhaft +10 %% je Kern)" % Config.LEVELS[level].cores)
 	sfx.play("win")
 	save_game()
@@ -645,6 +674,11 @@ func _process(delta: float) -> void:
 	_update_weapon(dt)
 	_update_drones(time, dt)
 	_update_explosions(dt)
+	ach_timer -= dt
+	if ach_timer <= 0:
+		ach_timer = 0.5
+		if not autotest:
+			_check_achievements()
 	shards.update(dt, chunk, player.pos, S.magnet, can_collect, collect)
 	_check_win()
 
@@ -669,7 +703,7 @@ func _start_autotest() -> void:
 	touch_mode = true
 	resume()
 	up["autoFire"] = 1
-	S = Config.stats(up, cores)
+	S = Config.stats(up, cores, achieved.size())
 	player.pos = Vector3(0, 0, 14)
 	player.pitch = 0.1
 	credits = 100000
@@ -677,7 +711,7 @@ func _start_autotest() -> void:
 	print("AUTOTEST bubble: alive=%d shards=%d" % [chunk.alive_count, shards.count])
 	S.magnet = 40.0 # alle Scherben anziehen
 	await get_tree().create_timer(2.0).timeout
-	S = Config.stats(up, cores)
+	S = Config.stats(up, cores, achieved.size())
 	# Explosivblock testen: einen suchen und zünden
 	var boom := -1
 	for b in chunk.n:
@@ -731,4 +765,6 @@ func _start_autotest() -> void:
 	var saved := chunk.serialize()
 	chunk.restore(saved)
 	print("AUTOTEST save roundtrip ok=%s fps=%d" % [chunk.serialize() == saved, Engine.get_frames_per_second()])
+	_check_achievements()
+	print("AUTOTEST erfolge: %d freigeschaltet: %s" % [achieved.size(), ", ".join(achieved)])
 	get_tree().quit()

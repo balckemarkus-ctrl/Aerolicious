@@ -80,7 +80,7 @@ Jedes Modell ist ein Skript in `blender/`, `blender/build_all.sh` exportiert all
 - Test auf dem Pixel 10 Pro und im Emulator, später signierter Release-Build für den Play Store
 
 ### Phase 6 – Ausbau (Wünsche)
-- Erfolge
+- Erfolge ✅ (30 Stück, je +1 % Schaden und Perlen; `godot/scripts/achievements.gd`)
 - Mehrere Spielstände
 - Mehr Waffen
 - Skins (Blaster, Blöcke, Halle)

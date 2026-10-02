@@ -92,10 +92,11 @@ static func core_mult(cores: int) -> float:
 	return 1.0 + 0.1 * cores
 
 # Abgeleitete Werte aus den Upgrade-Stufen.
-static func stats(up: Dictionary, cores := 0) -> Dictionary:
+# "ach" = Anzahl Erfolge (je +1 % Schaden und Perlen)
+static func stats(up: Dictionary, cores := 0, ach := 0) -> Dictionary:
 	var l := func(id: String) -> int: return up.get(id, 0)
 	var milestone := func(id: String) -> float: return pow(2.0, floori(l.call(id) / 25.0))
-	var cm := core_mult(cores)
+	var cm := core_mult(cores) * (1.0 + 0.01 * ach)
 	return {
 		"damage": (1.0 + 0.25 * l.call("damage")) * milestone.call("damage") * cm,
 		"fire_rate": 3.0 * pow(1.05, l.call("rate")),
