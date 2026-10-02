@@ -1,6 +1,6 @@
 extends Node3D
 # Spielschleife (wie src/main.js): Welt, Brocken, Spieler, Blaster mit vier Munitionsarten,
-# Scherben, Recycler, Shop, Drohnen, Speichern, Start/Pause/Sieg, Desktop- und Touch-Steuerung.
+# Splitter, Blasenbrunnen, Shop, Drohnen, Speichern, Start/Pause/Sieg, Desktop- und Touch-Steuerung.
 # Startoptionen (nach "--"): --touch erzwingt Touch-Modus, --autotest spielt kurz selbst und beendet.
 
 const SAVE_PATH := "user://save.json"
@@ -34,6 +34,7 @@ var up := {}
 var ammo := 0
 var play_time := 0.0
 var won := false
+var level := 0
 var S := Config.stats({})
 
 var playing := false
@@ -51,7 +52,8 @@ var time := 0.0
 func _ready() -> void:
 	world = World.new()
 	add_child(world)
-	chunk = Chunk.new(World.first_mesh(World.model("block")))
+	level = 0 if autotest else _saved_level()
+	chunk = Chunk.new(World.first_mesh(World.model("block")), level)
 	chunk.block_broken.connect(_on_block_broken)
 	add_child(chunk)
 	var block_mesh := World.first_mesh(World.model("block"))
@@ -96,6 +98,7 @@ func _ready() -> void:
 		hud.win.visible = false
 		resume())
 	hud.ammo_selected.connect(set_ammo)
+	hud.next_level_pressed.connect(next_level)
 	if touch_mode:
 		touch = TouchControls.new()
 		touch.player = player
@@ -112,11 +115,12 @@ func _ready() -> void:
 	if touch:
 		touch.set_muted(sfx.muted)
 	_sync_drones()
+	hud.set_level(level, Config.LEVELS.size(), Config.LEVELS[level].name)
 	hud.update_stats(chunk, credits, inv, S.bag, S.auto_recycle)
 	hud.show_menu("Weiter spielen" if had_save else "Spielen", had_save)
 	if not had_save:
 		get_tree().create_timer(2.5).timeout.connect(func():
-			hud.toast("Tipp: Sammle Scherben und bring sie zum grünen Recycler."))
+			hud.toast("Tipp: Sammle Splitter und wirf sie in den Blasenbrunnen."))
 	if autotest:
 		_start_autotest()
 	else:
@@ -164,6 +168,16 @@ func _prewarm() -> void:
 
 # ---------- Spielstand ----------
 
+func _read_save():
+	if not FileAccess.file_exists(SAVE_PATH):
+		return null
+	var d = JSON.parse_string(FileAccess.get_file_as_string(SAVE_PATH))
+	return d if typeof(d) == TYPE_DICTIONARY and d.get("v", 0) == 1 else null
+
+func _saved_level() -> int:
+	var d = _read_save()
+	return clampi(int(d.get("level", 0)), 0, Config.LEVELS.size() - 1) if d else 0
+
 func bag_count() -> int:
 	var n := 0
 	for v in inv:
@@ -184,17 +198,16 @@ func save_game() -> void:
 	if f == null:
 		return
 	f.store_string(JSON.stringify({
-		"v": 1, "chunk": chunk.serialize(), "credits": credits, "earned": earned, "inv": inv, "up": up,
+		"v": 1, "level": level, "chunk": chunk.serialize(), "credits": credits, "earned": earned, "inv": inv, "up": up,
 		"ammo": ammo, "play_time": play_time, "won": won, "player": player.serialize(), "muted": sfx.muted,
 	}))
 
 func load_game() -> bool:
-	if not FileAccess.file_exists(SAVE_PATH):
+	var d = _read_save()
+	if d == null:
 		return false
-	var d = JSON.parse_string(FileAccess.get_file_as_string(SAVE_PATH))
-	if typeof(d) != TYPE_DICTIONARY or d.get("v", 0) != 1:
-		return false
-	chunk.restore(d.chunk)
+	if d.get("chunk", "") != "":
+		chunk.restore(d.chunk)
 	credits = d.credits
 	earned = d.get("earned", 0.0)
 	inv = d.inv.map(func(x): return int(x))
@@ -204,10 +217,23 @@ func load_game() -> bool:
 	ammo = int(d.ammo)
 	play_time = d.play_time
 	won = d.won
-	player.restore(d.player)
+	if d.get("player") != null:
+		player.restore(d.player)
 	sfx.set_muted(d.get("muted", false))
 	S = Config.stats(up)
 	return true
+
+func next_level() -> void:
+	# Fortschritt (Perlen, Upgrades) bleibt, neues Bauwerk startet frisch
+	level = mini(level + 1, Config.LEVELS.size() - 1)
+	won = false
+	var f := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
+	f.store_string(JSON.stringify({
+		"v": 1, "level": level, "chunk": "", "credits": credits, "earned": earned, "inv": inv, "up": up,
+		"ammo": ammo, "play_time": play_time, "won": false, "player": null, "muted": sfx.muted,
+	}))
+	f.close()
+	get_tree().reload_current_scene()
 
 func reset_game() -> void:
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(SAVE_PATH))
@@ -309,12 +335,22 @@ func hit_block(b: int, dmg: float) -> void:
 func _on_block_broken(b: int, t: int) -> void:
 	var p := chunk.center(b)
 	sfx.break_block(t)
+	if chunk.gold[b]:
+		var bonus: float = Config.TIERS[t].value * 25.0 * S.recycle_mult
+		credits += bonus
+		earned += bonus
+		fx.ring(p, Color("ffcf3a"), 3.0)
+		fx.burst(p, Color("ffcf3a"), 30, 7.0)
+		hud.toast("✨ Goldblock! +%s Perlen" % Hud.fmt(bonus))
+		sfx.play("buy")
 	if debris.full():
 		_on_debris_popped(p, t)
 	else:
 		# Der Block fällt erst als Würfel herunter und zerplatzt dann
 		var c: Color = Config.TIERS[t].color
-		debris.spawn(p, last_dir * 0.6, t, c, chunk.striped(b))
+		debris.spawn(p, last_dir * 0.6, t, Color("ffcf3a") if chunk.gold[b] else c, chunk.striped(b), chunk.gold[b])
+	if chunk.striped(b) > 0.5:
+		shards.spawn(p, t, Config.TIERS[t].shards) # Panzerblöcke geben doppelt Splitter
 
 func _on_debris_popped(p: Vector3, t: int) -> void:
 	shards.spawn(p, t, Config.TIERS[t].shards)
@@ -429,7 +465,7 @@ func can_collect(_tier: int) -> bool:
 		return true
 	if time - last_full_toast > 5.0:
 		last_full_toast = time
-		hud.toast("🎒 Rucksack voll! Ab zum Recycler.")
+		hud.toast("🎒 Rucksack voll! Ab zum Blasenbrunnen.")
 	return false
 
 func collect(tier: int) -> void:
@@ -444,7 +480,7 @@ func collect(tier: int) -> void:
 func recycle() -> void:
 	var count := bag_count()
 	if count == 0:
-		hud.toast("Keine Scherben im Rucksack.")
+		hud.toast("Keine Splitter im Rucksack.")
 		sfx.play("error")
 		return
 	var v := 0.0
@@ -457,7 +493,7 @@ func recycle() -> void:
 	sfx.play("recycle")
 	fx.burst(World.RECYCLER_POS + Vector3(0, 3, 0), Color("8bffb0"), 30, 6.0)
 	fx.ring(World.RECYCLER_POS + Vector3(0, 2, 0), Color("8bffb0"), 3.0)
-	hud.toast("♻️ %d Scherben recycelt: +%s Credits" % [count, Hud.fmt(v)])
+	hud.toast("💧 %d Splitter eingetauscht: +%s Perlen" % [count, Hud.fmt(v)])
 	save_game()
 
 func buy(id: String) -> void:
@@ -495,7 +531,7 @@ func close_shop() -> void:
 
 func _find_nearby() -> String:
 	var p := Vector2(player.pos.x, player.pos.z)
-	if p.distance_to(Vector2(World.RECYCLER_POS.x, World.RECYCLER_POS.z)) < 3.8:
+	if p.distance_to(Vector2(World.RECYCLER_POS.x, World.RECYCLER_POS.z)) < 4.0:
 		return "recycler"
 	if p.distance_to(Vector2(World.SHOP_POS.x, World.SHOP_POS.z)) < 3.6:
 		return "shop"
@@ -515,14 +551,14 @@ func _update_prompt() -> void:
 	nearby = _find_nearby()
 	var text := ""
 	if nearby == "recycler":
-		text = "Recyceln (%s Scherben)" % Hud.fmt(bag_count())
+		text = "Eintauschen (%s Splitter)" % Hud.fmt(bag_count())
 	elif nearby == "shop":
 		text = "Shop öffnen"
 	hud.set_prompt("[E]  " + text if text != "" and not shop_open else "")
 	if touch:
 		var label := ""
 		if nearby == "recycler":
-			label = "♻️ Recyceln (%s)" % Hud.fmt(bag_count())
+			label = "💧 Eintauschen (%s)" % Hud.fmt(bag_count())
 		elif nearby == "shop":
 			label = "🛒 Shop"
 		touch.set_action("" if shop_open else label)
@@ -537,7 +573,7 @@ func _check_win() -> void:
 	win_open = true
 	playing = false
 	_release_controls()
-	hud.show_win(play_time, earned)
+	hud.show_win(play_time, earned, level, Config.LEVELS.size())
 
 # ---------- Hauptschleife ----------
 

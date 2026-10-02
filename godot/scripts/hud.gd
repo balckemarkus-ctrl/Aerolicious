@@ -9,12 +9,14 @@ signal shop_closed
 signal buy_pressed(id: String)
 signal continue_pressed
 signal ammo_selected(index: int)
+signal next_level_pressed
 
 const INK := Color("0b3557")
 
 var touch_mode := false
 var root: Control
 var blocks_label: Label
+var level_label: Label
 var progress_fill: Panel
 var tier_labels: Array[Label] = []
 var credits_label: Label
@@ -37,6 +39,9 @@ var shop_credits: Label
 var shop_grid: GridContainer
 var win: Control
 var win_stats: Label
+var win_sub: Label
+var next_btn: Button
+var cont_btn: Button
 
 # ---------- Bausteine ----------
 
@@ -173,7 +178,8 @@ func _build_hud() -> void:
 	tv.add_theme_constant_override("separation", 4)
 	top.add_child(tv)
 	var row := HBoxContainer.new()
-	row.add_child(label("BROCKEN", 16))
+	level_label = label("BAUWERK", 16)
+	row.add_child(level_label)
 	var sp := Control.new()
 	sp.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.add_child(sp)
@@ -299,8 +305,9 @@ func _build_menu() -> void:
 	sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	box.add_child(sub)
 	var how := label(
-		"Zerschieße den Brocken aus 3.757 Blöcken · Sammle die Scherben ein\n"
-		+ "Recycle sie gegen Credits · Kaufe im Shop Upgrades, Munition und Drohnen", 18)
+		"Zerlege fünf Bauwerke aus bunten Blöcken · Sammle die Splitter ein\n"
+		+ "Tausche sie am Blasenbrunnen gegen Perlen · Kaufe im Shop Upgrades, Munition und Drohnen\n"
+		+ "Gestreifte Panzerblöcke halten mehr aus · Goldblöcke bringen einen Perlen-Regen", 18)
 	how.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	box.add_child(how)
 	var keys := label(
@@ -409,7 +416,7 @@ func render_shop(credits: float, up: Dictionary) -> void:
 		var ll := label(lvl_text, 14)
 		ll.add_theme_color_override("font_color", Color(INK, 0.65))
 		cv.add_child(ll)
-		var b := button("Maximal" if maxed else "%s Credits" % fmt(cost), 19)
+		var b := button("Maximal" if maxed else "%s Perlen" % fmt(cost), 19)
 		b.custom_minimum_size = Vector2(0, 52)
 		b.disabled = maxed or credits < cost
 		b.mouse_filter = Control.MOUSE_FILTER_PASS
@@ -421,19 +428,23 @@ func _build_win() -> void:
 	win = _overlay()
 	var box := _centered_panel(win)
 	box.add_child(_title("Geschafft!"))
-	var sub := label("Alle 3.757 Blöcke sind verschwunden. Die Insel strahlt.", 22)
-	sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	box.add_child(sub)
+	win_sub = label("", 22)
+	win_sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	box.add_child(win_sub)
 	win_stats = label("", 20)
 	win_stats.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	box.add_child(win_stats)
 	var row := HBoxContainer.new()
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
 	row.add_theme_constant_override("separation", 16)
-	var cont := button("Weiter entspannen", 26)
-	cont.custom_minimum_size = Vector2(300, 68)
-	cont.pressed.connect(func(): continue_pressed.emit())
-	row.add_child(cont)
+	next_btn = button("Nächstes Bauwerk", 26)
+	next_btn.custom_minimum_size = Vector2(300, 68)
+	next_btn.pressed.connect(func(): next_level_pressed.emit())
+	row.add_child(next_btn)
+	cont_btn = button("Weiter entspannen", 22, false)
+	cont_btn.custom_minimum_size = Vector2(260, 68)
+	cont_btn.pressed.connect(func(): continue_pressed.emit())
+	row.add_child(cont_btn)
 	var again := button("Neues Spiel", 22, false)
 	again.custom_minimum_size = Vector2(220, 68)
 	again.pressed.connect(func(): reset_pressed.emit())
@@ -443,10 +454,15 @@ func _build_win() -> void:
 
 # ---------- Aktualisieren ----------
 
+func set_level(index: int, count: int, name: String) -> void:
+	level_label.text = "BAUWERK %d/%d · %s" % [index + 1, count, name.to_upper()]
+
 func update_stats(chunk: Chunk, credits: float, inv: Array, bag: int, auto_recycle: bool) -> void:
 	var left := chunk.alive_count
-	blocks_label.text = "%s / %s" % [fmt(left), fmt(Config.TOTAL_BLOCKS)]
-	set_bar(progress_fill, 1.0 - float(left) / Config.TOTAL_BLOCKS)
+	blocks_label.text = "%s / %s" % [fmt(left), fmt(chunk.n)]
+	set_bar(progress_fill, 1.0 - float(left) / chunk.n)
+	for t in tier_labels.size():
+		tier_labels[t].get_parent().visible = chunk.tier_total[t] > 0
 	for t in tier_labels.size():
 		tier_labels[t].text = fmt(chunk.tier_alive[t])
 	credits_label.text = fmt(credits)
@@ -456,7 +472,7 @@ func update_stats(chunk: Chunk, credits: float, inv: Array, bag: int, auto_recyc
 		n += inv[t]
 		if inv[t] > 0:
 			parts.append("%s %s" % [Config.TIERS[t].name, fmt(inv[t])])
-	bag_label.text = "Fern-Recycling" if auto_recycle else "%s / %s" % [fmt(n), fmt(bag)]
+	bag_label.text = "Fern-Brunnen" if auto_recycle else "%s / %s" % [fmt(n), fmt(bag)]
 	set_bar(bag_fill, 1.0 if auto_recycle else float(n) / bag)
 	var full := not auto_recycle and n >= bag
 	(bag_fill.get_theme_stylebox("panel") as StyleBoxFlat).bg_color = Color("ff6a3d") if full else Color("1ea2e8")
@@ -504,10 +520,14 @@ func toast(text: String) -> void:
 	tw.tween_property(p, "modulate:a", 0.0, 0.4)
 	tw.tween_callback(p.queue_free)
 
-func show_win(play_time: float, earned: float) -> void:
+func show_win(play_time: float, earned: float, level: int, count: int) -> void:
 	var m := floori(play_time / 60)
 	var s := floori(fmod(play_time, 60))
-	win_stats.text = "Spielzeit: %d:%02d · Verdient: %s Credits" % [m, s, fmt(earned)]
+	var last := level >= count - 1
+	win_sub.text = "Alle fünf Bauwerke sind abgetragen. Die Wiese gehört dir." if last \
+		else "Bauwerk %d von %d ist abgetragen. Das nächste wartet schon." % [level + 1, count]
+	win_stats.text = "Spielzeit: %d:%02d · Verdient: %s Perlen" % [m, s, fmt(earned)]
+	next_btn.visible = not last
 	win.visible = true
 
 class Crosshair extends Control:
@@ -517,7 +537,7 @@ class Crosshair extends Control:
 		draw_arc(Vector2.ZERO, 9, 0, TAU, 32, Color(1, 1, 1, 0.95), 2.5, true)
 		draw_circle(Vector2.ZERO, 2, Color.WHITE)
 
-# Glänzende Kugel (Munition, Credits, Block-Stufen) im Frutiger-Aero-Stil
+# Glänzende Kugel (Munition, Perlen, Block-Stufen) im Frutiger-Aero-Stil
 class Ball extends Control:
 	var color: Color
 	func _init(c: Color, diameter: int) -> void:

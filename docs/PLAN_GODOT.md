@@ -8,6 +8,18 @@ Warum der Wechsel: Auf dem Pixel 10 Pro (PowerVR-Grafik) stürzt der Grafiktreib
 Android-WebView ab. Godot nutzt auf Android **Vulkan** (Renderer „Mobile“) und läuft nativ, also
 schneller, sparsamer und ohne die WebView dazwischen.
 
+## Eigenständigkeit
+
+Aero Shards ist ein eigenes Spiel. Allgemeine Spielidee (Blöcke zerschießen, sammeln, aufrüsten) und ein
+sonniger Wiesen-Look sind frei; alles Kennzeichnende ist eigenständig:
+
+- **Fünf Bauwerke** nacheinander (Würfel, Stufenpyramide, Turm, Kugel, Riesenwürfel; zusammen 9.406 Blöcke),
+  jedes mit eigener Blockzahl und steigender Härte (`Config.LEVELS`, Form in `Chunk.shape_cells`).
+- **Blasenbrunnen** statt Recycling: Splitter werden gegen **Perlen** getauscht.
+- **Panzerblöcke** (gestreift, doppelte Haltbarkeit, doppelte Splitter) und seltene **Goldblöcke** (Perlen-Regen).
+- Eigene Modelle (Blender-Skripte), eigene Klänge (`tools/sounds`), eigener Blasen-Blaster und Glas-Oberfläche.
+- Kein fremder Name, keine fremden Grafiken, Texte oder Logos.
+
 ## Ordner
 
 | Ordner | Inhalt |
@@ -40,7 +52,7 @@ Stil: Frutiger Aero, also glänzend, weiche Rundungen, Glas, Wasser, frisches Gr
 - Insel mit Weg und Ufer
 Jedes Modell ist ein Skript in `blender/`, `blender/build_all.sh` exportiert alles nach `godot/assets/models/`
 (einzelne Modelle: `./blender/build_all.sh shop blaster`). Die `.blend`-Dateien und Vorschaubilder landen in
-`blender/out/` (nicht im Git, jederzeit neu erzeugbar). Die Szene `godot/gallery.tscn` zeigt alle Modelle in der Welt.
+`blender/out/` (nicht im Git, jederzeit neu erzeugbar).
 
 ### Phase 2 – Spielkern in Godot ✅ (erste Fassung, Skripte in `godot/scripts/`)
 - Brocken: Voxel-Gitter mit 3.757 Blöcken in 5 Stufen, Darstellung per MultiMesh je Stufe,

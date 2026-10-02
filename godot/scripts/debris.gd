@@ -29,13 +29,13 @@ func _init(block_mesh: Mesh, material: Material) -> void:
 func full() -> bool:
 	return items.size() >= MAX
 
-func spawn(p: Vector3, push: Vector3, tier: int, color: Color, striped: float) -> void:
+func spawn(p: Vector3, push: Vector3, tier: int, color: Color, striped: float, golden := 0.0) -> void:
 	var out := Vector3(randf() - 0.5, 0, randf() - 0.5) * 2.0
 	items.append({
 		"pos": p, "vel": push * 2.5 + out + Vector3(0, 1.5 + randf() * 1.5, 0),
 		"rot": Quaternion.IDENTITY,
 		"spin": Vector3(randf() - 0.5, randf() - 0.5, randf() - 0.5) * 6.0,
-		"life": 1.1 + randf() * 0.7, "tier": tier, "color": color, "striped": striped,
+		"life": 1.1 + randf() * 0.7, "tier": tier, "color": color, "striped": striped, "gold": golden,
 	})
 
 func _solid(p: Vector3) -> bool:
@@ -78,5 +78,5 @@ func _process(delta: float) -> void:
 		var basis := Basis(d.rot).scaled(Vector3.ONE * (1.031 * s))
 		mm.set_instance_transform(k, Transform3D(basis, d.pos))
 		mm.set_instance_color(k, d.color)
-		mm.set_instance_custom_data(k, Color(d.striped, 0, 0, 0))
+		mm.set_instance_custom_data(k, Color(d.striped, d.gold, 0, 0))
 	mm.visible_instance_count = items.size()

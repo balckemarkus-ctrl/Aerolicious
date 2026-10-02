@@ -1,12 +1,13 @@
 shader_type spatial;
 // Blöcke des Brockens: matter Kunststoff in satten Farben (Farbe je Instanz),
-// manche Blöcke mit diagonalem Streifenmuster (INSTANCE_CUSTOM.r = 1).
+// gestreifte Panzerblöcke (INSTANCE_CUSTOM.r = 1) und glänzende Goldblöcke (INSTANCE_CUSTOM.g = 1).
 
 uniform float roughness = 0.42;
 
 varying vec3 local_pos;
 varying vec3 local_n;
 varying float striped;
+varying float golden;
 
 vec3 srgb_to_linear(vec3 c) {
 	return mix(c / 12.92, pow((c + 0.055) / 1.055, vec3(2.4)), step(vec3(0.04045), c));
@@ -16,6 +17,7 @@ void vertex() {
 	local_pos = VERTEX;
 	local_n = NORMAL;
 	striped = INSTANCE_CUSTOM.r;
+	golden = INSTANCE_CUSTOM.g;
 }
 
 void fragment() {
@@ -27,6 +29,8 @@ void fragment() {
 	// Kanten leicht aufhellen (weiche Fase fängt Licht)
 	float edge = smoothstep(0.38, 0.48, max(max(abs(local_pos.x) * (1.0 - an.x), abs(local_pos.y) * (1.0 - an.y)), abs(local_pos.z) * (1.0 - an.z)));
 	ALBEDO = c * (1.0 + edge * 0.18);
-	ROUGHNESS = roughness;
+	ROUGHNESS = mix(roughness, 0.18, golden);
+	METALLIC = golden * 0.75;
+	EMISSION = c * golden * 0.35;
 	SPECULAR = 0.45;
 }

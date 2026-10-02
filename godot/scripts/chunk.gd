@@ -13,7 +13,8 @@ const FLASH := Color(1, 1, 1)
 # Modell ist 0,97 m groß; leicht vergrößert stoßen die Blöcke lückenlos aneinander (keine Durchblick-Fugen)
 const BLOCK_BASIS := Basis(Vector3(1.031, 0, 0), Vector3(0, 1.031, 0), Vector3(0, 0, 1.031))
 
-var n := Config.TOTAL_BLOCKS
+var n := 0
+var level := 0
 var grid := PackedInt32Array()
 var bi := PackedInt32Array()
 var bj := PackedInt32Array()
@@ -21,6 +22,7 @@ var bk := PackedInt32Array()
 var tier := PackedByteArray()
 var hp := PackedFloat32Array()
 var alive := PackedByteArray()
+var gold := PackedByteArray()        # seltene Goldblöcke (Perlen-Bonus)
 var inst := PackedInt32Array()       # Slot im sichtbaren MultiMesh, -1 = unsichtbar
 var vis: Array = [[], [], [], [], []] # sichtbare Blöcke je Stufe
 var alive_count := 0
@@ -31,64 +33,132 @@ var exposed_arr: Array[int] = []
 var exposed_pos := PackedInt32Array()
 var mms: Array[MultiMesh] = []
 
-func _init(block_mesh: Mesh) -> void:
+func _init(block_mesh: Mesh, level_index := 0) -> void:
 	name = "Chunk"
+	level = level_index
 	grid.resize(DIM * DIM * DIM)
 	grid.fill(-1)
+	var cells := shape_cells(Config.LEVELS[level])
+	n = cells.size()
 	for arr in [bi, bj, bk, inst, exposed_pos]:
 		arr.resize(n)
 	tier.resize(n)
 	hp.resize(n)
 	alive.resize(n)
+	gold.resize(n)
 	inst.fill(-1)
 	exposed_pos.fill(-1)
-	_generate()
+	_generate(cells, Config.LEVELS[level].max_tier)
 	_build_meshes(block_mesh)
 	recompute_exposed()
 
-func _generate() -> void:
-	# Würfel aus 17 × 13 × 17 = 3.757 Blöcken. Sortiert von innen nach außen (Schalen),
-	# innere Schalen bekommen die härteren Stufen.
-	var cells := []
-	var c := 0
-	for i in range(-8, 9):
-		for j in range(0, 13):
-			for k in range(-8, 9):
-				var depth := mini(mini(8 - absi(i), 8 - absi(k)), 12 - j)
-				var center_d := Vector3(i, (j - 6) * 1.2, k).length()
-				cells.append(Vector3(-depth * 100.0 + center_d, c, i * 10000 + j * 100 + k))
-				c += 1
-	cells.sort()
+# Zellen eines Bauwerks (Gitterkoordinaten, Boden bei j = 0)
+static func shape_cells(lv: Dictionary) -> Array[Vector3i]:
+	var out: Array[Vector3i] = []
+	var sz: Vector3i = lv.size
+	match lv.shape:
+		"cube":
+			for i in range(-sz.x / 2, sz.x - sz.x / 2):
+				for j in sz.y:
+					for k in range(-sz.z / 2, sz.z - sz.z / 2):
+						out.append(Vector3i(i, j, k))
+		"pyramid":
+			for j in sz.y:
+				var h := sz.y - 1 - j
+				for i in range(-h, h + 1):
+					for k in range(-h, h + 1):
+						out.append(Vector3i(i, j, k))
+		"tower":
+			var r := sz.x / 2.0
+			for j in sz.y:
+				for i in range(-6, 7):
+					for k in range(-6, 7):
+						var d := Vector2(i, k).length()
+						if d > r:
+							continue
+						if j >= sz.y - 2: # Zinnen oben
+							if d < r - 1.6 or sin(atan2(k, i) * 6.0) < 0:
+								continue
+						out.append(Vector3i(i, j, k))
+		"sphere":
+			var rad := sz.x / 2.0
+			for i in range(-9, 10):
+				for j in sz.y:
+					for k in range(-9, 10):
+						if Vector3(i, j - rad + 0.5, k).length() <= rad:
+							out.append(Vector3i(i, j, k))
+	return out
+
+func _generate(cells: Array[Vector3i], max_tier: int) -> void:
+	# Tiefe = Abstand zur Oberfläche (Breitensuche von außen). Innen liegen die härteren Stufen.
+	var lookup := {}
+	for c in cells:
+		lookup[c] = true
+	var depth := {}
+	var queue: Array[Vector3i] = []
+	for c in cells:
+		for nb in NEIGHBORS:
+			var o: Vector3i = c + nb
+			if o.y >= 0 and not lookup.has(o):
+				depth[c] = 0
+				queue.append(c)
+				break
+	var qi := 0
+	while qi < queue.size():
+		var c := queue[qi]
+		qi += 1
+		for nb in NEIGHBORS:
+			var o: Vector3i = c + nb
+			if lookup.has(o) and not depth.has(o):
+				depth[o] = depth[c] + 1
+				queue.append(o)
+	var top := 0.0
+	for c in cells:
+		top = maxf(top, c.y)
+	var keys := []
+	for idx in cells.size():
+		var c := cells[idx]
+		var center_d := Vector3(c.x, (c.y - top / 2.0) * 1.2, c.z).length()
+		keys.append(Vector2(-depth.get(c, 0) * 1000.0 + center_d, idx))
+	keys.sort()
+	# Anteile der erlaubten Stufen neu verteilen
+	var total_frac := 0.0
+	for t in max_tier + 1:
+		total_frac += Config.TIERS[t].frac
 	var bounds := []
 	var acc := 0.0
-	for t in range(Config.TIERS.size() - 1, -1, -1):
-		acc += Config.TIERS[t].frac
+	for t in range(max_tier, -1, -1):
+		acc += Config.TIERS[t].frac / total_frac
 		bounds.append([t, acc])
 	for r in n:
-		var code := int(cells[r].z)
-		var i := roundi(code / 10000.0)
-		var rest := code - i * 10000
-		var j := roundi(rest / 100.0)
-		var k := rest - j * 100
+		var c := cells[int(keys[r].y)]
 		var f := float(r) / n
 		var t := 0
 		for b in bounds:
 			if f < b[1]:
 				t = b[0]
 				break
-		bi[r] = i; bj[r] = j; bk[r] = k
+		bi[r] = c.x; bj[r] = c.y; bk[r] = c.z
 		tier[r] = t
-		hp[r] = Config.TIERS[t].hp
 		alive[r] = 1
+		var g := sin(c.x * 12.3 + c.y * 71.9 + c.z * 33.7 + level * 5.1) * 9137.7
+		gold[r] = 1 if t >= 1 and g - floorf(g) < 0.012 else 0
+		hp[r] = max_hp(r)
 		tier_total[t] += 1
-		grid[key(i, j, k)] = r
+		grid[key(c.x, c.y, c.z)] = r
 	alive_count = n
 	tier_alive = tier_total.duplicate()
 
-# Etwa jeder dritte Block trägt Streifen (fest je Position, damit es beim Laden gleich aussieht)
+# Panzerblöcke (gestreift) halten doppelt so viel aus
+func max_hp(b: int) -> float:
+	return Config.TIERS[tier[b]].hp * (2.0 if striped(b) > 0.5 else 1.0)
+
+# Etwa jeder dritte Block ist ein gestreifter Panzerblock (fest je Position)
 func striped(b: int) -> float:
+	if gold[b]:
+		return 0.0
 	var h := sin(bi[b] * 91.7 + bj[b] * 47.3 + bk[b] * 13.1) * 43758.5
-	return 1.0 if h - floorf(h) < 0.33 else 0.0
+	return 1.0 if h - floorf(h) < 0.3 else 0.0
 
 func _build_meshes(block_mesh: Mesh) -> void:
 	var shader := load("res://shaders/block.gdshader") as Shader
@@ -104,7 +174,7 @@ func _build_meshes(block_mesh: Mesh) -> void:
 		mm.mesh = mesh
 		mm.instance_count = maxi(1, tier_total[t])
 		mm.visible_instance_count = 0
-		mm.custom_aabb = AABB(Vector3(-12, -1, -12), Vector3(24, 16, 24))
+		mm.custom_aabb = AABB(Vector3(-12, -1, -12), Vector3(24, 24, 24))
 		var mmi := MultiMeshInstance3D.new()
 		mmi.multimesh = mm
 		add_child(mmi)
@@ -123,10 +193,10 @@ func center(b: int) -> Vector3:
 
 func base_color(b: int) -> Color:
 	var t := int(tier[b])
-	var ratio: float = hp[b] / Config.TIERS[t].hp
+	var ratio: float = hp[b] / max_hp(b)
 	# Leichte Variation pro Block für den glänzenden Fliesen-Look
 	var v := 0.95 + 0.05 * sin(bi[b] * 12.9 + bj[b] * 78.2 + bk[b] * 37.7)
-	var c: Color = Config.TIERS[t].color
+	var c: Color = Color("ffcf3a") if gold[b] else Config.TIERS[t].color
 	var f := v * (0.7 + 0.3 * ratio)
 	return Color(c.r * f, c.g * f, c.b * f)
 
@@ -138,7 +208,7 @@ func _show_block(b: int) -> void:
 	inst[b] = slot
 	mms[t].set_instance_transform(slot, Transform3D(BLOCK_BASIS, center(b)))
 	mms[t].set_instance_color(slot, base_color(b))
-	mms[t].set_instance_custom_data(slot, Color(striped(b), 0, 0, 0))
+	mms[t].set_instance_custom_data(slot, Color(striped(b), gold[b], 0, 0))
 	mms[t].visible_instance_count = list.size()
 
 func _hide_block(b: int) -> void:
@@ -153,7 +223,7 @@ func _hide_block(b: int) -> void:
 		inst[last] = slot
 		mms[t].set_instance_transform(slot, Transform3D(BLOCK_BASIS, center(last)))
 		mms[t].set_instance_color(slot, FLASH if flashes.has(last) else base_color(last))
-		mms[t].set_instance_custom_data(slot, Color(striped(last), 0, 0, 0))
+		mms[t].set_instance_custom_data(slot, Color(striped(last), gold[last], 0, 0))
 	inst[b] = -1
 	mms[t].visible_instance_count = list.size()
 

@@ -1,6 +1,6 @@
 class_name World
 extends Node3D
-# Himmel, Licht, Wiese mit Hügeln und Gras, Windräder, Bäume, Wolken, Recycler und Shop.
+# Himmel, Licht, Wiese mit Hügeln und Gras, Windräder, Bäume, Wolken, Blasenbrunnen und Shop.
 
 const M := "res://assets/models/"
 const ISLAND_RADIUS := 66.0
@@ -84,14 +84,14 @@ func _ready() -> void:
 	grass = Grass.new()
 	add_child(grass)
 
-	var recycler := model("recycler")
+	var recycler := model("fountain") # Blasenbrunnen
 	recycler.position = RECYCLER_POS
 	add_child(recycler)
 	recycler_ring = recycler.find_child("Ring", true, false)
 	var shop := model("shop")
 	shop.position = SHOP_POS
 	add_child(shop)
-	colliders.append([RECYCLER_POS.x, RECYCLER_POS.z, 1.9])
+	colliders.append([RECYCLER_POS.x, RECYCLER_POS.z, 2.4])
 	colliders.append([SHOP_POS.x, SHOP_POS.z, 1.6])
 
 	# Windräder auf den Hügeln

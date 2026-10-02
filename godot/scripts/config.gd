@@ -1,9 +1,16 @@
 class_name Config
 # Spiel-Konfiguration: Block-Stufen, Munition, Upgrades und abgeleitete Werte (wie src/config.js).
 
-const TOTAL_BLOCKS := 3757
+# Fünf Bauwerke nacheinander. "max_tier": härteste Block-Stufe in diesem Bauwerk.
+const LEVELS := [
+	{ "name": "Würfel",          "shape": "cube",    "size": Vector3i(10, 8, 10), "max_tier": 1 },
+	{ "name": "Stufenpyramide",  "shape": "pyramid", "size": Vector3i(19, 10, 19), "max_tier": 2 },
+	{ "name": "Turm",            "shape": "tower",   "size": Vector3i(11, 20, 11), "max_tier": 3 },
+	{ "name": "Kugel",           "shape": "sphere",  "size": Vector3i(17, 17, 17), "max_tier": 4 },
+	{ "name": "Riesenwürfel",    "shape": "cube",    "size": Vector3i(15, 13, 15), "max_tier": 4 },
+]
 
-# Stufen von außen (0) nach innen (4). "frac" = Anteil am Brocken (Würfel aus 17 × 13 × 17 Blöcken).
+# Stufen von außen (0) nach innen (4). "frac" = Anteil am Bauwerk (bei weniger Stufen anteilig).
 const TIERS := [
 	{ "name": "Blau",   "color": Color("4fb6f7"), "hp": 1.0,   "value": 1,   "shards": 2, "frac": 0.37 },
 	{ "name": "Grün",   "color": Color("7ad83a"), "hp": 5.0,   "value": 3,   "shards": 2, "frac": 0.25 },
@@ -23,15 +30,15 @@ const UPGRADES := [
 	{ "id": "damage",      "icon": "💥", "name": "Blasen-Druck",        "desc": "Mehr Schaden pro Treffer",                   "base": 12,    "growth": 1.85, "max": 14 },
 	{ "id": "rate",        "icon": "⚡", "name": "Pumpen-Takt",         "desc": "Schnellere Feuerrate",                       "base": 15,    "growth": 1.9,  "max": 10 },
 	{ "id": "magnet",      "icon": "🧲", "name": "Magnet",              "desc": "Größerer Sammelradius",                      "base": 10,    "growth": 1.9,  "max": 8 },
-	{ "id": "bag",         "icon": "🎒", "name": "Rucksack",            "desc": "Mehr Platz für Scherben",                    "base": 8,     "growth": 1.75, "max": 12 },
+	{ "id": "bag",         "icon": "🎒", "name": "Rucksack",            "desc": "Mehr Platz für Splitter",                    "base": 8,     "growth": 1.75, "max": 12 },
 	{ "id": "speed",       "icon": "👟", "name": "Turnschuhe",          "desc": "Schneller laufen",                           "base": 25,    "growth": 2.2,  "max": 5 },
-	{ "id": "recycle",     "icon": "♻️", "name": "Recycling-Effizienz", "desc": "+25 % Credits beim Recyceln",                "base": 40,    "growth": 2.0,  "max": 8 },
+	{ "id": "recycle",     "icon": "💧", "name": "Brunnen-Bonus",       "desc": "+25 % Perlen am Blasenbrunnen",                "base": 40,    "growth": 2.0,  "max": 8 },
 	{ "id": "fizz",        "icon": "🫧", "name": "Fizz-Granate",        "desc": "Neue Munition: Flächenschaden [2]",          "base": 250,   "growth": 1.0,  "max": 1 },
 	{ "id": "drones",      "icon": "🛸", "name": "Aero-Drohne",         "desc": "Eine Helfer-Drohne, die mitschießt",         "base": 600,   "growth": 2.0,  "max": 6 },
 	{ "id": "droneSpeed",  "icon": "🔋", "name": "Drohnen-Turbo",       "desc": "Drohnen feuern schneller",                   "base": 900,   "growth": 1.8,  "max": 8 },
 	{ "id": "beam",        "icon": "🌈", "name": "Prisma-Strahl",       "desc": "Neue Munition: durchdringender Strahl [3]",  "base": 2500,  "growth": 1.0,  "max": 1 },
 	{ "id": "nova",        "icon": "☀️", "name": "Aero-Nova",           "desc": "Neue Munition: riesige Explosion [4]",       "base": 12000, "growth": 1.0,  "max": 1 },
-	{ "id": "autoRecycle", "icon": "📡", "name": "Fern-Recycling",      "desc": "Gesammelte Scherben werden sofort recycelt", "base": 20000, "growth": 1.0,  "max": 1 },
+	{ "id": "autoRecycle", "icon": "📡", "name": "Fern-Brunnen",        "desc": "Splitter werden sofort in Perlen getauscht", "base": 20000, "growth": 1.0,  "max": 1 },
 ]
 
 static func upgrade_cost(u: Dictionary, lvl: int) -> int:
