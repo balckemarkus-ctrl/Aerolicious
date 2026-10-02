@@ -8,6 +8,7 @@ import { Shards } from './shards.js';
 import { Effects } from './effects.js';
 import { Player } from './player.js';
 import { Audio } from './audio.js';
+import { TOUCH, initTouch, enterFullscreen } from './touch.js';
 
 const SAVE_KEY = 'aero-shards-save-v1';
 // ?trailer: Simulation wird von src/trailer.js Bild für Bild gesteuert (kein Speichern, keine Eingabe).
@@ -17,13 +18,14 @@ const $ = (id) => document.getElementById(id);
 
 // ---------- Renderer & Szene ----------
 const canvas = $('game');
-const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
+// Handy: weniger Pixel und einfachere Schatten, damit es flüssig bleibt
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, TOUCH ? 1.25 : 2));
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.05;
 renderer.shadowMap.enabled = true;
-renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.shadowMap.type = TOUCH ? THREE.PCFShadowMap : THREE.PCFSoftShadowMap;
 
 const scene = new THREE.Scene();
 const pmrem = new THREE.PMREMGenerator(renderer);
@@ -34,6 +36,7 @@ const camera = new THREE.PerspectiveCamera(72, window.innerWidth / window.innerH
 scene.add(camera);
 
 const world = buildWorld(scene);
+if (TOUCH) scene.traverse((o) => { if (o.isLight && o.castShadow) o.shadow.mapSize.set(1024, 1024); });
 const chunk = new Chunk(scene);
 const shards = new Shards(scene);
 const fx = new Effects(scene);
@@ -146,9 +149,11 @@ function aimDistance(origin, dir, hits) {
 function updateWeapon(dt) {
   cooldown -= dt;
   const ammo = AMMO[state.ammo];
-  const firing = (control.fire || (player.mouseDown && player.locked)) && !ui.shopOpen;
   camera.getWorldDirection(_dir);
   const origin = camera.position;
+  // Touch: automatisch feuern, solange das Fadenkreuz auf einem Block liegt
+  const autoFire = TOUCH && player.locked && chunk.raycast(origin, _dir, 150, 1).length > 0;
+  const firing = (control.fire || autoFire || (player.mouseDown && player.locked)) && !ui.shopOpen;
   muzzle.getWorldPosition(_mz);
 
   if (ammo.id === 'beam') {
@@ -290,7 +295,7 @@ const dot = (t) => `<i class="dot" style="background:#${TIERS[t].color.toString(
 
 function renderAmmo() {
   $('ammo').innerHTML = AMMO.map((a, i) => `
-    <div class="slot glass ${i === state.ammo ? 'active' : ''} ${unlocked(i) ? '' : 'locked'}">
+    <div data-ammo="${i}" class="slot glass ${i === state.ammo ? 'active' : ''} ${unlocked(i) ? '' : 'locked'}">
       <div class="num">${i + 1}</div>
       <div class="ball" style="background:#${a.color.toString(16).padStart(6, '0')}"></div>
       ${unlocked(i) ? a.name : '🔒'}
@@ -353,14 +358,32 @@ function buy(id) {
 
 function lock() {
   if (TRAILER) return;
-  canvas.requestPointerLock();
+  if (TOUCH) {
+    player.touchActive = true;
+    $('start').classList.add('hidden');
+    enterFullscreen();
+  } else {
+    canvas.requestPointerLock();
+  }
+}
+
+// Gegenstück zu lock(): Steuerung freigeben (Shop, Pause, Gewonnen)
+function unlock() {
+  if (TOUCH) { player.touchActive = false; touch.reset(); } else document.exitPointerLock();
+}
+
+function pause() {
+  if (!ui.started || ui.shopOpen || ui.winOpen) return;
+  unlock();
+  showPause();
+  save();
 }
 
 function openShop() {
   ui.shopOpen = true;
   renderShop();
   $('shop').classList.remove('hidden');
-  document.exitPointerLock();
+  unlock();
 }
 
 function closeShop() {
@@ -393,7 +416,7 @@ $('continueBtn').addEventListener('click', () => {
 });
 $('newGameBtn').addEventListener('click', resetGame);
 canvas.addEventListener('click', () => {
-  if (ui.started && !player.locked && !ui.shopOpen && !ui.winOpen) lock();
+  if (!TOUCH && ui.started && !player.locked && !ui.shopOpen && !ui.winOpen) lock();
 });
 
 document.addEventListener('pointerlockchange', () => {
@@ -405,13 +428,18 @@ document.addEventListener('pointerlockerror', () => {
 });
 
 let nearby = null;
+// Taste E bzw. Touch-Aktionsknopf
+function interact() {
+  nearby = findNearby();
+  if (ui.shopOpen) closeShop();
+  else if (player.locked && nearby === 'recycler') recycle();
+  else if (player.locked && nearby === 'shop') openShop();
+}
+
 document.addEventListener('keydown', (e) => {
   if (!ui.started) return;
   if (e.code === 'KeyE') {
-    nearby = findNearby();
-    if (ui.shopOpen) closeShop();
-    else if (player.locked && nearby === 'recycler') recycle();
-    else if (player.locked && nearby === 'shop') openShop();
+    interact();
   } else if (e.code === 'Escape' && ui.shopOpen) {
     closeShop();
   } else if (e.code === 'KeyM') {
@@ -437,8 +465,25 @@ function findNearby() {
   return dr < 3.8 ? 'recycler' : ds < 3.6 ? 'shop' : null;
 }
 
+$('ammo').addEventListener('click', (e) => {
+  const slot = e.target.closest('[data-ammo]');
+  if (slot && unlocked(Number(slot.dataset.ammo))) setAmmo(Number(slot.dataset.ammo));
+});
+
+const touch = TOUCH && !TRAILER ? initTouch({
+  player,
+  onAction: interact,
+  onPause: pause,
+  onMute: () => audio.toggleMute(),
+}) : null;
+
 function updatePrompt() {
   nearby = findNearby();
+  if (touch) {
+    const label = nearby === 'recycler' ? `♻️ Recyceln (${fmt(bagCount())})` : '🛒 Shop';
+    touch.setAction(ui.shopOpen ? null : nearby, label);
+    return;
+  }
   const el = $('prompt');
   if (!nearby || ui.shopOpen) { el.classList.add('hidden'); return; }
   el.classList.remove('hidden');
@@ -457,7 +502,7 @@ function checkWin() {
     const m = Math.floor(state.playTime / 60), s = Math.floor(state.playTime % 60);
     $('winStats').innerHTML = `Spielzeit: <b>${m}:${String(s).padStart(2, '0')}</b> · Verdient: <b>${fmt(state.earned)} Credits</b>`;
     $('win').classList.remove('hidden');
-    document.exitPointerLock();
+    unlock();
   }, 1500);
 }
 
@@ -480,6 +525,10 @@ window.addEventListener('resize', () => {
   renderer.setSize(window.innerWidth, window.innerHeight);
 });
 window.addEventListener('beforeunload', save);
+// App/Tab im Hintergrund: pausieren und speichern
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) { if (TOUCH) pause(); save(); }
+});
 setInterval(() => { if (ui.started) save(); }, 5000);
 
 // ---------- Hauptschleife ----------

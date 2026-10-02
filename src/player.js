@@ -16,22 +16,29 @@ export class Player {
     this.onGround = false;
     this.keys = new Set();
     this.mouseDown = false;
+    // Touch-Modus: Steuerung ohne Pointer-Lock (siehe src/touch.js)
+    this.touchActive = false;
+    this.stick = { x: 0, y: 0 }; // x = seitwärts, y = vorwärts, je -1..1
+    this.jumpHeld = false;
     camera.rotation.order = 'YXZ';
 
     document.addEventListener('mousemove', (e) => {
       if (document.pointerLockElement !== dom) return;
-      this.yaw -= e.movementX * 0.0022;
-      this.pitch -= e.movementY * 0.0022;
-      this.pitch = Math.max(-1.5, Math.min(1.5, this.pitch));
+      this.look(e.movementX * 0.0022, e.movementY * 0.0022);
     });
     document.addEventListener('keydown', (e) => this.keys.add(e.code));
     document.addEventListener('keyup', (e) => this.keys.delete(e.code));
     dom.addEventListener('mousedown', (e) => { if (e.button === 0) this.mouseDown = true; });
     document.addEventListener('mouseup', (e) => { if (e.button === 0) this.mouseDown = false; });
-    window.addEventListener('blur', () => { this.keys.clear(); this.mouseDown = false; });
+    window.addEventListener('blur', () => { this.keys.clear(); this.mouseDown = false; this.jumpHeld = false; });
   }
 
-  get locked() { return document.pointerLockElement === this.dom; }
+  get locked() { return this.touchActive || document.pointerLockElement === this.dom; }
+
+  look(dYaw, dPitch) {
+    this.yaw -= dYaw;
+    this.pitch = Math.max(-1.5, Math.min(1.5, this.pitch - dPitch));
+  }
 
   collides(chunk, px, py, pz) {
     for (let x = Math.floor(px - HALF); x <= Math.floor(px + HALF); x++) {
@@ -46,20 +53,24 @@ export class Player {
 
   update(dt, chunk, colliders, speed) {
     const k = this.keys;
-    const f = (k.has('KeyW') || k.has('ArrowUp') ? 1 : 0) - (k.has('KeyS') || k.has('ArrowDown') ? 1 : 0);
-    const s = (k.has('KeyD') || k.has('ArrowRight') ? 1 : 0) - (k.has('KeyA') || k.has('ArrowLeft') ? 1 : 0);
-    const sprint = k.has('ShiftLeft') || k.has('ShiftRight') ? 1.45 : 1;
+    const f = (k.has('KeyW') || k.has('ArrowUp') ? 1 : 0) - (k.has('KeyS') || k.has('ArrowDown') ? 1 : 0) + this.stick.y;
+    const s = (k.has('KeyD') || k.has('ArrowRight') ? 1 : 0) - (k.has('KeyA') || k.has('ArrowLeft') ? 1 : 0) + this.stick.x;
+    // Stick ganz ausgelenkt = rennen
+    const stickLen = Math.hypot(this.stick.x, this.stick.y);
+    const sprint = k.has('ShiftLeft') || k.has('ShiftRight') || stickLen > 0.95 ? 1.45 : 1;
     const sin = Math.sin(this.yaw), cos = Math.cos(this.yaw);
     let wx = -sin * f + cos * s;
     let wz = -cos * f - sin * s;
+    // Tastatur: immer volle Geschwindigkeit; Stick: halb ausgelenkt = langsamer
     const len = Math.hypot(wx, wz);
-    if (len > 0) { wx /= len; wz /= len; }
+    const scale = len > 1 || stickLen === 0 ? len : 1;
+    if (scale > 0) { wx /= scale; wz /= scale; }
     const target = this.locked ? speed * sprint : 0;
     const accel = this.onGround ? 14 : 4;
     this.vel.x += (wx * target - this.vel.x) * Math.min(1, accel * dt);
     this.vel.z += (wz * target - this.vel.z) * Math.min(1, accel * dt);
 
-    if (this.locked && k.has('Space') && this.onGround) {
+    if (this.locked && (k.has('Space') || this.jumpHeld) && this.onGround) {
       this.vel.y = 8;
       this.onGround = false;
     }

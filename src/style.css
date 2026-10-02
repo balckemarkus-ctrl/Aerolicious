@@ -83,3 +83,50 @@ kbd { background: linear-gradient(#fff, #dbeefa); border: 1px solid #9cc7e6; bor
   .slot { width: 64px; font-size: 10px; }
   h1 { font-size: 38px; }
 }
+
+/* ---------- Touch (Handy/Tablet, Querformat) ---------- */
+body:not(.touch) .touch-only, body.touch .desk-only { display: none !important; }
+body.touch { -webkit-tap-highlight-color: transparent; -webkit-touch-callout: none; }
+body.touch #prompt { display: none; }
+
+#touch { position: fixed; inset: 0; touch-action: none; }
+#stickZone, #lookZone { position: absolute; top: 0; bottom: 0; touch-action: none; }
+#stickZone { left: 0; width: 45%; }
+#lookZone { right: 0; width: 55%; }
+
+#stickBase { position: fixed; width: 130px; height: 130px; margin: -65px 0 0 -65px; border-radius: 50%; pointer-events: none;
+  background: radial-gradient(circle, rgba(255,255,255,.25), rgba(255,255,255,.08) 70%); border: 2px solid rgba(255,255,255,.7);
+  box-shadow: 0 4px 18px rgba(0,70,140,.25); }
+#stickKnob { position: absolute; left: 50%; top: 50%; width: 60px; height: 60px; border-radius: 50%; transform: translate(-50%, -50%);
+  background: radial-gradient(circle at 35% 30%, #fff, #bfe9ff 45%, #5fbfff); box-shadow: 0 3px 10px rgba(0,70,140,.4); }
+
+.tbtn { position: fixed; display: flex; align-items: center; justify-content: center; font: inherit; font-weight: 800; color: #0b3557;
+  touch-action: none; border-radius: 50%; padding: 0; }
+.tbtn:active, .tbtn.down { filter: brightness(.9); transform: scale(.94); }
+#btnJump { right: calc(24px + env(safe-area-inset-right)); bottom: calc(24px + env(safe-area-inset-bottom)); width: 84px; height: 84px; font-size: 38px; }
+#btnAction { right: calc(124px + env(safe-area-inset-right)); bottom: calc(30px + env(safe-area-inset-bottom)); height: 64px; padding: 0 22px;
+  border-radius: 32px; font-size: 18px; color: #fff; text-shadow: 0 1px 2px rgba(0,60,0,.5);
+  background: linear-gradient(180deg, #8ff07a 0%, #3cc63a 50%, #22a524 51%, #5fdc4a 100%); }
+#btnPause, #btnMute { top: calc(12px + env(safe-area-inset-top)); width: 52px; height: 52px; font-size: 20px; }
+#btnPause { right: calc(12px + env(safe-area-inset-right)); }
+#btnMute { right: calc(72px + env(safe-area-inset-right)); }
+
+body.touch #toasts { top: calc(72px + env(safe-area-inset-top)); }
+body.touch #wallet { top: calc(12px + env(safe-area-inset-top)); bottom: auto; left: calc(12px + env(safe-area-inset-left)); width: 200px; padding: 8px 12px; }
+body.touch #wallet .credits { font-size: 20px; }
+body.touch #progress { top: calc(10px + env(safe-area-inset-top)); width: min(360px, 40vw); padding: 6px 12px; }
+body.touch #ammo { bottom: calc(10px + env(safe-area-inset-bottom)); z-index: 1; }
+body.touch .slot { width: 72px; padding: 6px 4px; font-size: 11px; }
+body.touch .slot .ball { width: 30px; height: 30px; }
+body.touch .card .btn { font-size: 17px; padding: 10px 12px; }
+body.touch .btn.small { font-size: 17px; padding: 10px 22px; }
+body.touch .panel { -webkit-overflow-scrolling: touch; touch-action: pan-y; }
+
+@media (max-height: 500px) {
+  .panel.big { padding: 14px 20px; }
+  h1 { font-size: 36px; }
+  .sub { margin: 4px 0; }
+  .howto { line-height: 1.4; margin: 6px auto; font-size: 14px; }
+  .keys { margin: 8px 0 10px; font-size: 12px; }
+  #shopGrid { grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); }
+}

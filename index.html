@@ -2,7 +2,8 @@
 <html lang="de">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+  <meta name="theme-color" content="#8fd6ff" />
   <title>Aero Shards</title>
   <link rel="stylesheet" href="/src/style.css" />
 </head>
@@ -28,7 +29,7 @@
     <div id="ammo"></div>
     <div id="prompt" class="glass hidden"></div>
     <div id="toasts"></div>
-    <div id="hint" class="glass">WASD laufen · Maus zielen · Klick schießen · E interagieren · 1–4 Munition · M Ton</div>
+    <div id="hint" class="glass desk-only">WASD laufen · Maus zielen · Klick schießen · E interagieren · 1–4 Munition · M Ton</div>
   </div>
 
   <div id="start" class="overlay">
@@ -41,7 +42,12 @@
         <li>Bring sie zum <b>Recycler</b> und tausche sie gegen Credits.</li>
         <li>Kaufe im <b>Shop</b> Upgrades, neue Munition und Drohnen.</li>
       </ul>
-      <div class="keys">
+      <div class="keys touch-only">
+        <span><b>Links</b> Stick: laufen (ganz raus = rennen)</span><span><b>Rechts</b> wischen: zielen</span>
+        <span>Feuert automatisch auf Blöcke</span><span><b>⤒</b> springen</span>
+        <span>Munition unten antippen</span><span><b>❚❚</b> Pause</span>
+      </div>
+      <div class="keys desk-only">
         <span><kbd>W A S D</kbd> laufen</span><span><kbd>Shift</kbd> rennen</span><span><kbd>Leertaste</kbd> springen</span>
         <span><kbd>Klick</kbd> schießen</span><span><kbd>E</kbd> interagieren</span><span><kbd>1-4</kbd> / Mausrad Munition</span>
         <span><kbd>M</kbd> Ton an/aus</span><span><kbd>Esc</kbd> Pause</span>
@@ -56,7 +62,7 @@
       <div class="shop-head">
         <h2>Aero-Shop</h2>
         <div class="credits"><span class="coin"></span><span id="shopCredits">0</span></div>
-        <button id="closeShop" class="btn small">Schließen (E)</button>
+        <button id="closeShop" class="btn small">Schließen<span class="desk-only"> (E)</span></button>
       </div>
       <div id="shopGrid"></div>
     </div>
