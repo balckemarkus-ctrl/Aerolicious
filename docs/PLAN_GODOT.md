@@ -27,18 +27,20 @@ schneller, sparsamer und ohne die WebView dazwischen.
 
 ## Phasen
 
-### Phase 0 – Grundlagen und Härtetest
+### Phase 0 – Grundlagen und Härtetest ✅
 - Godot-Projekt mit Renderer **Mobile**, Querformat, Vollbild (immersive).
 - Härtetest-Szene: ca. 3.700 glänzende Blöcke (MultiMesh), Schatten, Himmel. Läuft sie auf dem
   Pixel 10 Pro flüssig und stabil, geht es weiter.
 
-### Phase 1 – Modelle in Blender
+### Phase 1 – Modelle in Blender ✅ (erste Fassung)
 Stil: Frutiger Aero, also glänzend, weiche Rundungen, Glas, Wasser, frisches Grün und Himmelblau.
 - Block (abgerundeter Würfel, eine Variante je Stufe über Material), Scherbe
 - Blaster (Ego-Ansicht), Drohne
 - Recycler und Shop-Station, Bäume, Hügel, Wolken, Seifenblasen
 - Insel mit Weg und Ufer
-Jedes Modell ist ein Skript in `blender/`, `blender/build_all.sh` exportiert alles nach `godot/assets/models/`.
+Jedes Modell ist ein Skript in `blender/`, `blender/build_all.sh` exportiert alles nach `godot/assets/models/`
+(einzelne Modelle: `./blender/build_all.sh shop blaster`). Die `.blend`-Dateien und Vorschaubilder landen in
+`blender/out/` (nicht im Git, jederzeit neu erzeugbar). Die Szene `godot/gallery.tscn` zeigt alle Modelle in der Welt.
 
 ### Phase 2 – Spielkern in Godot
 - Brocken: Voxel-Gitter mit 3.757 Blöcken in 5 Stufen, Darstellung per MultiMesh je Stufe,
