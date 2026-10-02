@@ -4,8 +4,8 @@ extends Node3D
 # (stick, jump_held, look() werden von touch_controls.gd gesetzt).
 
 const HALF := 0.3
-const HEIGHT := 1.75
-const EYE := 1.6
+const HEIGHT := 1.4
+const EYE := 1.25 # etwas kleiner als früher: die Blöcke wirken größer, wie im Vorbild
 const MOUSE_SENS := 0.0022
 
 var cam: Camera3D

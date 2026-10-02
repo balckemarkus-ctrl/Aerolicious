@@ -57,8 +57,8 @@ func _ready() -> void:
 	ring_mesh.height = 2.0
 
 	# Zylinder der Höhe 1 von y=0 bis y=1 (für Strahl und Laser)
-	line_mesh.top_radius = 0.05
-	line_mesh.bottom_radius = 0.05
+	line_mesh.top_radius = 0.03
+	line_mesh.bottom_radius = 0.03
 	line_mesh.height = 1.0
 	line_mesh.radial_segments = 8
 	line_mesh.cap_top = false

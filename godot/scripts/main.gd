@@ -13,6 +13,9 @@ var world: World
 var chunk: Chunk
 var shards: Shards
 var fx: Effects
+var debris: Debris
+var numbers: DamageNumbers
+var last_dir := Vector3.FORWARD
 var player: Player
 var hud: Hud
 var sfx: Sfx
@@ -51,12 +54,22 @@ func _ready() -> void:
 	chunk = Chunk.new(World.first_mesh(World.model("block")))
 	chunk.block_broken.connect(_on_block_broken)
 	add_child(chunk)
-	shards = Shards.new(World.first_mesh(World.model("shard")))
+	var block_mesh := World.first_mesh(World.model("block"))
+	shards = Shards.new(block_mesh) # Scherben sind kleine Würfel
 	add_child(shards)
+	var block_mat := ShaderMaterial.new()
+	block_mat.shader = load("res://shaders/block.gdshader")
+	debris = Debris.new(block_mesh, block_mat)
+	debris.chunk = chunk
+	debris.popped.connect(_on_debris_popped)
+	add_child(debris)
+	numbers = DamageNumbers.new()
+	add_child(numbers)
 	fx = Effects.new()
 	add_child(fx)
 	player = Player.new()
 	add_child(player)
+	world.grass.target = player.cam
 	sfx = Sfx.new()
 	add_child(sfx)
 
@@ -136,6 +149,8 @@ func _prewarm() -> void:
 	fx.set_beam(p - side, p + side, Config.AMMO[2].color)
 	fx.laser(p + Vector3.UP * 0.3, p - Vector3.UP * 0.3, Color("7ff0ff"))
 	shards.spawn(p, 0, 1)
+	debris.spawn(p, Vector3.ZERO, 0, Config.TIERS[0].color, 1.0)
+	numbers.show_number(p, 10)
 	var drone := World.model("drone")
 	drone.position = p + Vector3.UP * 0.5
 	drone.scale = Vector3.ONE * 0.3
@@ -144,6 +159,7 @@ func _prewarm() -> void:
 		await get_tree().process_frame
 	fx.hide_beam()
 	shards.clear()
+	debris.items.clear()
 	drone.queue_free()
 
 # ---------- Spielstand ----------
@@ -285,14 +301,24 @@ func toggle_mute() -> void:
 	save_game()
 
 func hit_block(b: int, dmg: float) -> void:
+	dmg *= randf_range(0.85, 1.2) # etwas Streuung, wie im Vorbild
+	numbers.show_number(chunk.center(b) - last_dir * 0.6, dmg * 10.0)
 	if not chunk.damage(b, dmg):
 		sfx.hit()
 
 func _on_block_broken(b: int, t: int) -> void:
 	var p := chunk.center(b)
-	shards.spawn(p, t, Config.TIERS[t].shards)
-	fx.burst(p, Config.TIERS[t].color, 5, 4.0)
 	sfx.break_block(t)
+	if debris.full():
+		_on_debris_popped(p, t)
+	else:
+		# Der Block fällt erst als Würfel herunter und zerplatzt dann
+		var c: Color = Config.TIERS[t].color
+		debris.spawn(p, last_dir * 0.6, t, c, chunk.striped(b))
+
+func _on_debris_popped(p: Vector3, t: int) -> void:
+	shards.spawn(p, t, Config.TIERS[t].shards)
+	fx.burst(p, Config.TIERS[t].color, 8, 4.0)
 
 func _aim_distance(origin: Vector3, dir: Vector3, hits: Array) -> float:
 	var dist: float = hits[0][1] if not hits.is_empty() else 90.0
@@ -304,6 +330,7 @@ func _update_weapon(dt: float) -> void:
 	cooldown -= dt
 	var a: Dictionary = Config.AMMO[ammo]
 	var dir := -player.cam.global_basis.z
+	last_dir = dir
 	var origin := player.cam.global_position
 	var mz := muzzle.global_position
 	var aim := chunk.raycast(origin, dir, 150, 1)
@@ -353,11 +380,13 @@ func _on_impact(p: Vector3, id: String, dir: Vector3, color: Color) -> void:
 		"fizz":
 			var c := p + dir * 0.4
 			chunk.damage_sphere(c, 1.9, S.damage * 1.2)
+			numbers.show_number(c, S.damage * 12.0)
 			fx.ring(c, color, 2.2)
 			fx.burst(c, color, 10, 5.0)
 		"nova":
 			var c := p + dir * 0.8
 			chunk.damage_sphere(c, 4.2, S.damage * 5)
+			numbers.show_number(c, S.damage * 50.0)
 			fx.ring(c, color, 5.0)
 			fx.burst(c, color, 24, 8.0)
 			sfx.break_block(4)

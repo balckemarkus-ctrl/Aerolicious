@@ -1,6 +1,6 @@
 class_name Shards
 extends Node3D
-# Scherben (wie src/shards.js): dichte Arrays mit Swap-Remove, gezeichnet als ein MultiMesh.
+# Scherben als kleine Würfel (wie src/shards.js): dichte Arrays mit Swap-Remove, gezeichnet als ein MultiMesh.
 # Sie hüpfen auf Boden und Brocken und fliegen zum Spieler, sobald er im Magnet-Radius ist.
 
 const MAX := 3000
@@ -19,10 +19,10 @@ func _init(mesh: Mesh) -> void:
 	var mat := StandardMaterial3D.new()
 	mat.vertex_color_use_as_albedo = true
 	mat.vertex_color_is_srgb = true
-	mat.roughness = 0.1
+	mat.roughness = 0.3
 	mat.emission_enabled = true
 	mat.emission = Color("223344")
-	mat.emission_energy_multiplier = 0.4
+	mat.emission_energy_multiplier = 0.25
 	var m := mesh.duplicate() as Mesh
 	m.surface_set_material(0, mat)
 	mm.transform_format = MultiMesh.TRANSFORM_3D
@@ -101,7 +101,7 @@ func update(dt: float, chunk: Chunk, player_pos: Vector3, magnet: float, can_col
 		var a := age[i]
 		var bob := 0.0 if pull[i] else maxf(0.0, sin(a * 2.5)) * 0.06
 		var sc := minf(1.0, a * 4.0) * (0.8 if pull[i] else 1.0)
-		var basis := Basis.from_euler(Vector3(a * 1.3, a * 2.1, 0)).scaled(Vector3.ONE * sc)
+		var basis := Basis.from_euler(Vector3(a * 1.3, a * 2.1, 0)).scaled(Vector3.ONE * sc * 0.26) # kleine Würfel
 		mm.set_instance_transform(i, Transform3D(basis, pos[i] + Vector3(0, bob, 0)))
 		i += 1
 	mm.visible_instance_count = count

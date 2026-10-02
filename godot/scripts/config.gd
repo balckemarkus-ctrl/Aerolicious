@@ -3,13 +3,13 @@ class_name Config
 
 const TOTAL_BLOCKS := 3757
 
-# Stufen von außen (0) nach innen (4). "frac" = Anteil am Brocken.
+# Stufen von außen (0) nach innen (4). "frac" = Anteil am Brocken (Würfel aus 17 × 13 × 17 Blöcken).
 const TIERS := [
-	{ "name": "Glas",    "color": Color("6cc8ff"), "hp": 1.0,   "value": 1,   "shards": 2, "frac": 0.37 },
-	{ "name": "Aqua",    "color": Color("26c6d6"), "hp": 5.0,   "value": 3,   "shards": 2, "frac": 0.25 },
-	{ "name": "Limette", "color": Color("8ee04a"), "hp": 25.0,  "value": 10,  "shards": 3, "frac": 0.18 },
-	{ "name": "Chrom",   "color": Color("b8c6d6"), "hp": 120.0, "value": 35,  "shards": 3, "frac": 0.12 },
-	{ "name": "Prisma",  "color": Color("ff8fe0"), "hp": 500.0, "value": 120, "shards": 4, "frac": 0.08 },
+	{ "name": "Blau",   "color": Color("4fb6f7"), "hp": 1.0,   "value": 1,   "shards": 2, "frac": 0.37 },
+	{ "name": "Grün",   "color": Color("7ad83a"), "hp": 5.0,   "value": 3,   "shards": 2, "frac": 0.25 },
+	{ "name": "Gelb",   "color": Color("ffd43a"), "hp": 25.0,  "value": 10,  "shards": 3, "frac": 0.18 },
+	{ "name": "Orange", "color": Color("ff8a2a"), "hp": 120.0, "value": 35,  "shards": 3, "frac": 0.12 },
+	{ "name": "Rot",    "color": Color("ff4a3a"), "hp": 500.0, "value": 120, "shards": 4, "frac": 0.08 },
 ]
 
 const AMMO := [

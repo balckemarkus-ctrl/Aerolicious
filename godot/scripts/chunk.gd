@@ -47,33 +47,29 @@ func _init(block_mesh: Mesh) -> void:
 	recompute_exposed()
 
 func _generate() -> void:
-	# Abstand jeder Zelle zum Zentrum (mit Wellen), sortiert: die n nächsten Zellen bilden den Brocken.
+	# Würfel aus 17 × 13 × 17 = 3.757 Blöcken. Sortiert von innen nach außen (Schalen),
+	# innere Schalen bekommen die härteren Stufen.
 	var cells := []
-	cells.resize(40 * 30 * 40)
 	var c := 0
-	for i in range(-20, 20):
-		for j in range(0, 30):
-			for k in range(-20, 20):
-				var px := i + 0.5
-				var py := j + 0.5
-				var pz := k + 0.5
-				var dy := (py - 8.5) * 1.1
-				var wobble := 1.0 + 0.12 * sin(px * 0.45 + 1.3) * cos(pz * 0.38) \
-					+ 0.08 * sin(py * 0.6 + pz * 0.3) + 0.05 * cos(px * 0.9 - py * 0.4)
-				cells[c] = Vector2(sqrt(px * px + dy * dy + pz * pz) / wobble, c)
+	for i in range(-8, 9):
+		for j in range(0, 13):
+			for k in range(-8, 9):
+				var depth := mini(mini(8 - absi(i), 8 - absi(k)), 12 - j)
+				var center_d := Vector3(i, (j - 6) * 1.2, k).length()
+				cells.append(Vector3(-depth * 100.0 + center_d, c, i * 10000 + j * 100 + k))
 				c += 1
 	cells.sort()
-	# Rang 0 = Zentrum. Innere Stufen sind härter.
 	var bounds := []
 	var acc := 0.0
 	for t in range(Config.TIERS.size() - 1, -1, -1):
 		acc += Config.TIERS[t].frac
 		bounds.append([t, acc])
 	for r in n:
-		var idx := int(cells[r].y)
-		var i := idx / (30 * 40) - 20
-		var j := (idx / 40) % 30
-		var k := idx % 40 - 20
+		var code := int(cells[r].z)
+		var i := roundi(code / 10000.0)
+		var rest := code - i * 10000
+		var j := roundi(rest / 100.0)
+		var k := rest - j * 100
 		var f := float(r) / n
 		var t := 0
 		for b in bounds:
@@ -89,29 +85,26 @@ func _generate() -> void:
 	alive_count = n
 	tier_alive = tier_total.duplicate()
 
+# Etwa jeder dritte Block trägt Streifen (fest je Position, damit es beim Laden gleich aussieht)
+func striped(b: int) -> float:
+	var h := sin(bi[b] * 91.7 + bj[b] * 47.3 + bk[b] * 13.1) * 43758.5
+	return 1.0 if h - floorf(h) < 0.33 else 0.0
+
 func _build_meshes(block_mesh: Mesh) -> void:
+	var shader := load("res://shaders/block.gdshader") as Shader
 	for t in Config.TIERS.size():
-		var mat := StandardMaterial3D.new()
-		mat.vertex_color_use_as_albedo = true
-		mat.vertex_color_is_srgb = true
-		mat.roughness = 0.08 if t == 3 else 0.18
-		mat.metallic = 0.85 if t == 3 else 0.0
-		mat.clearcoat_enabled = true
-		mat.clearcoat = 1.0
-		mat.clearcoat_roughness = 0.05
-		if t == 4: # Prisma: leichter Schimmer am Rand
-			mat.rim_enabled = true
-			mat.rim = 0.6
-			mat.rim_tint = 0.2
+		var mat := ShaderMaterial.new()
+		mat.shader = shader
 		var mesh := block_mesh.duplicate() as Mesh
 		mesh.surface_set_material(0, mat)
 		var mm := MultiMesh.new()
 		mm.transform_format = MultiMesh.TRANSFORM_3D
 		mm.use_colors = true
+		mm.use_custom_data = true
 		mm.mesh = mesh
 		mm.instance_count = maxi(1, tier_total[t])
 		mm.visible_instance_count = 0
-		mm.custom_aabb = AABB(Vector3(-25, -1, -25), Vector3(50, 35, 50))
+		mm.custom_aabb = AABB(Vector3(-12, -1, -12), Vector3(24, 16, 24))
 		var mmi := MultiMeshInstance3D.new()
 		mmi.multimesh = mm
 		add_child(mmi)
@@ -132,9 +125,9 @@ func base_color(b: int) -> Color:
 	var t := int(tier[b])
 	var ratio: float = hp[b] / Config.TIERS[t].hp
 	# Leichte Variation pro Block für den glänzenden Fliesen-Look
-	var v := 0.92 + 0.08 * sin(bi[b] * 12.9 + bj[b] * 78.2 + bk[b] * 37.7)
+	var v := 0.95 + 0.05 * sin(bi[b] * 12.9 + bj[b] * 78.2 + bk[b] * 37.7)
 	var c: Color = Config.TIERS[t].color
-	var f := v * (0.55 + 0.45 * ratio)
+	var f := v * (0.7 + 0.3 * ratio)
 	return Color(c.r * f, c.g * f, c.b * f)
 
 func _show_block(b: int) -> void:
@@ -145,6 +138,7 @@ func _show_block(b: int) -> void:
 	inst[b] = slot
 	mms[t].set_instance_transform(slot, Transform3D(BLOCK_BASIS, center(b)))
 	mms[t].set_instance_color(slot, base_color(b))
+	mms[t].set_instance_custom_data(slot, Color(striped(b), 0, 0, 0))
 	mms[t].visible_instance_count = list.size()
 
 func _hide_block(b: int) -> void:
@@ -159,6 +153,7 @@ func _hide_block(b: int) -> void:
 		inst[last] = slot
 		mms[t].set_instance_transform(slot, Transform3D(BLOCK_BASIS, center(last)))
 		mms[t].set_instance_color(slot, FLASH if flashes.has(last) else base_color(last))
+		mms[t].set_instance_custom_data(slot, Color(striped(last), 0, 0, 0))
 	inst[b] = -1
 	mms[t].visible_instance_count = list.size()
 
