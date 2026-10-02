@@ -10,6 +10,9 @@ import { Player } from './player.js';
 import { Audio } from './audio.js';
 
 const SAVE_KEY = 'aero-shards-save-v1';
+// ?trailer: Simulation wird von src/trailer.js Bild für Bild gesteuert (kein Speichern, keine Eingabe).
+const TRAILER = new URLSearchParams(location.search).has('trailer');
+const control = { fire: false, camera: null };
 const $ = (id) => document.getElementById(id);
 
 // ---------- Renderer & Szene ----------
@@ -45,6 +48,7 @@ const bagCount = () => state.inv.reduce((a, b) => a + b, 0);
 const unlocked = (ammoIdx) => !AMMO[ammoIdx].unlock || (state.up[AMMO[ammoIdx].unlock] || 0) > 0;
 
 function save() {
+  if (TRAILER) return;
   try {
     localStorage.setItem(SAVE_KEY, JSON.stringify({
       v: 1,
@@ -142,7 +146,7 @@ function aimDistance(origin, dir, hits) {
 function updateWeapon(dt) {
   cooldown -= dt;
   const ammo = AMMO[state.ammo];
-  const firing = player.mouseDown && player.locked && !ui.shopOpen;
+  const firing = (control.fire || (player.mouseDown && player.locked)) && !ui.shopOpen;
   camera.getWorldDirection(_dir);
   const origin = camera.position;
   muzzle.getWorldPosition(_mz);
@@ -327,8 +331,11 @@ function renderShop() {
 
 $('shopGrid').addEventListener('click', (e) => {
   const btn = e.target.closest('button[data-id]');
-  if (!btn) return;
-  const u = UPGRADES.find((x) => x.id === btn.dataset.id);
+  if (btn) buy(btn.dataset.id);
+});
+
+function buy(id) {
+  const u = UPGRADES.find((x) => x.id === id);
   const lvl = state.up[u.id] || 0;
   const cost = upgradeCost(u, lvl);
   if (lvl >= u.max || state.credits < cost) { audio.error(); return; }
@@ -342,9 +349,10 @@ $('shopGrid').addEventListener('click', (e) => {
   renderShop();
   renderAmmo();
   save();
-});
+}
 
 function lock() {
+  if (TRAILER) return;
   canvas.requestPointerLock();
 }
 
@@ -440,7 +448,7 @@ function updatePrompt() {
 }
 
 function checkWin() {
-  if (state.won || chunk.aliveCount > 0) return;
+  if (TRAILER || state.won || chunk.aliveCount > 0) return;
   state.won = true;
   audio.win();
   save();
@@ -454,7 +462,7 @@ function checkWin() {
 }
 
 // ---------- Start ----------
-const hadSave = load();
+const hadSave = TRAILER ? false : load();
 setAmmo(unlocked(state.ammo) ? state.ammo : 0);
 syncDrones();
 updateHud();
@@ -463,7 +471,7 @@ if (hadSave) {
   $('resetBtn').classList.remove('hidden');
 }
 setTimeout(() => {
-  if (!hadSave) toast('Tipp: Sammle Scherben und bring sie zum grünen Recycler.');
+  if (!hadSave && !TRAILER) toast('Tipp: Sammle Scherben und bring sie zum grünen Recycler.');
 }, 2500);
 
 window.addEventListener('resize', () => {
@@ -478,12 +486,12 @@ setInterval(() => { if (ui.started) save(); }, 5000);
 const clock = new THREE.Clock();
 let hudTimer = 0;
 let time = 0;
-function frame() {
-  const dt = Math.min(clock.getDelta(), 0.05);
+function tick(dt) {
   time += dt;
   if (ui.started && player.locked) state.playTime += dt;
 
-  player.update(dt, chunk, world.colliders, S.speed);
+  if (control.camera) control.camera(camera, time);
+  else player.update(dt, chunk, world.colliders, S.speed);
   updateWeapon(dt);
   updateDrones(time, dt);
   shards.update(dt, chunk, player.pos, S.magnet, canCollect, collect);
@@ -505,9 +513,24 @@ function frame() {
   }
 
   renderer.render(scene, camera);
+}
+
+function frame() {
+  tick(Math.min(clock.getDelta(), 0.05));
   requestAnimationFrame(frame);
 }
-frame();
 
 // Für Tests/Debugging
 window.__game = { state, chunk, shards, player, stats: () => S };
+
+if (TRAILER) {
+  document.body.classList.add('trailer');
+  $('start').classList.add('hidden');
+  import('./trailer.js').then(({ startTrailer }) => startTrailer({
+    THREE, scene, camera, renderer, chunk, shards, fx, player, audio, state, control, gun, ui,
+    tick, buy, recycle, setAmmo, openShop, closeShop, updateHud, refreshStats: () => { S = stats(state.up); syncDrones(); },
+    $,
+  }));
+} else {
+  frame();
+}
