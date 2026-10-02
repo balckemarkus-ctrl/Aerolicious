@@ -22,7 +22,8 @@ export function initTouch({ player, onAction, onPause, onMute }) {
     <button id="btnMute" class="tbtn glass" aria-label="Ton">🔊</button>
     <button id="btnAction" class="tbtn glass hidden"></button>
     <button id="btnJump" class="tbtn glass" aria-label="Springen">⤒</button>`;
-  document.getElementById('hud').appendChild(root);
+  // Ganz unten im HUD, damit Munitions-Slots darüber liegen und antippbar bleiben
+  document.getElementById('hud').prepend(root);
   const $ = (id) => root.querySelector('#' + id);
 
   // ---------- Stick (linke Hälfte, erscheint dort, wo der Daumen aufsetzt) ----------

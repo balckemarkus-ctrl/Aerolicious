@@ -115,7 +115,12 @@ body.touch #toasts { top: calc(72px + env(safe-area-inset-top)); }
 body.touch #wallet { top: calc(12px + env(safe-area-inset-top)); bottom: auto; left: calc(12px + env(safe-area-inset-left)); width: 200px; padding: 8px 12px; }
 body.touch #wallet .credits { font-size: 20px; }
 body.touch #progress { top: calc(10px + env(safe-area-inset-top)); width: min(360px, 40vw); padding: 6px 12px; }
-body.touch #ammo { bottom: calc(10px + env(safe-area-inset-bottom)); z-index: 1; }
+@media (max-width: 760px) {
+  body.touch #wallet { width: 160px; }
+  body.touch #progress { width: 36vw; }
+}
+body.touch #ammo { bottom: calc(10px + env(safe-area-inset-bottom)); }
+body.touch #wallet, body.touch #progress { pointer-events: none; }
 body.touch .slot { width: 72px; padding: 6px 4px; font-size: 11px; }
 body.touch .slot .ball { width: 30px; height: 30px; }
 body.touch .card .btn { font-size: 17px; padding: 10px 12px; }
