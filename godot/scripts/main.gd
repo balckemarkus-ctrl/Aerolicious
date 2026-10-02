@@ -35,6 +35,8 @@ var ammo := 0
 var play_time := 0.0
 var won := false
 var level := 0
+var unlocked_level := 0   # höchstes wählbares Bauwerk
+var chunks := {}           # Fortschritt der anderen Bauwerke (Index -> Bitfeld)
 var cores := 0
 var run_earned := 0.0   # seit dem letzten Reaktor-Neustart verdient (für Kerne)
 var shots := 0
@@ -100,6 +102,7 @@ func _ready() -> void:
 	hud.shop_closed.connect(close_shop)
 	hud.buy_pressed.connect(buy)
 	hud.prestige_pressed.connect(prestige)
+	hud.level_selected.connect(select_level)
 	hud.achievements_pressed.connect(func(): hud.show_achievements(achieved))
 	hud.continue_pressed.connect(func():
 		win_open = false
@@ -127,6 +130,7 @@ func _ready() -> void:
 	hud.set_level(level, Config.LEVELS.size(), Config.LEVELS[level].name)
 	hud.update_stats(chunk, credits, inv, S.bag, S.auto_recycle)
 	hud.set_prestige(cores, Config.prestige_cores(run_earned))
+	hud.set_levels(level, unlocked_level)
 	hud.show_menu("Weiter spielen" if had_save else "Spielen", had_save)
 	if not had_save:
 		get_tree().create_timer(2.5).timeout.connect(func():
@@ -135,6 +139,8 @@ func _ready() -> void:
 		_start_autotest()
 	else:
 		_prewarm()
+	if "--leveltest" in args:
+		_level_test()
 
 func _collect_tank_materials(n: Node) -> void:
 	# Tank und Düse des Blasters nehmen die Farbe der Munition an
@@ -208,7 +214,7 @@ func save_game() -> void:
 	if f == null:
 		return
 	f.store_string(JSON.stringify({
-		"v": 1, "level": level, "cores": cores, "run_earned": run_earned, "shots": shots, "counters": counters, "achieved": achieved, "chunk": chunk.serialize(), "credits": credits, "earned": earned, "inv": inv, "up": up,
+		"v": 1, "level": level, "cores": cores, "run_earned": run_earned, "shots": shots, "counters": counters, "achieved": achieved, "unlocked_level": unlocked_level, "chunks": chunks, "chunk": chunk.serialize(), "credits": credits, "earned": earned, "inv": inv, "up": up,
 		"ammo": ammo, "play_time": play_time, "won": won, "player": player.serialize(), "muted": sfx.muted,
 	}))
 
@@ -229,6 +235,8 @@ func load_game() -> bool:
 	run_earned = float(d.get("run_earned", earned))
 	shots = int(d.get("shots", 0))
 	counters = d.get("counters", {})
+	unlocked_level = maxi(int(d.get("unlocked_level", 0)), level)
+	chunks = d.get("chunks", {})
 	achieved = d.get("achieved", [])
 	play_time = d.play_time
 	won = d.won
@@ -239,13 +247,21 @@ func load_game() -> bool:
 	return true
 
 func next_level() -> void:
-	# Fortschritt (Perlen, Upgrades) bleibt, neues Bauwerk startet frisch
-	level = mini(level + 1, Config.LEVELS.size() - 1)
+	select_level(mini(level + 1, Config.LEVELS.size() - 1))
+
+# Bauwerk wechseln: Fortschritt des aktuellen merken, gewähltes laden (geschaffte starten frisch)
+func select_level(i: int) -> void:
+	if i > unlocked_level:
+		return
+	chunks[str(level)] = "" if chunk.alive_count == 0 else chunk.serialize()
+	level = i
 	won = false
 	var f := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
 	f.store_string(JSON.stringify({
-		"v": 1, "level": level, "cores": cores, "run_earned": run_earned, "shots": shots, "counters": counters, "achieved": achieved, "chunk": "", "credits": credits, "earned": earned, "inv": inv, "up": up,
-		"ammo": ammo, "play_time": play_time, "won": false, "player": null, "muted": sfx.muted,
+		"v": 1, "level": level, "cores": cores, "run_earned": run_earned, "shots": shots, "counters": counters,
+		"achieved": achieved, "unlocked_level": unlocked_level, "chunks": chunks, "chunk": chunks.get(str(level), ""),
+		"credits": credits, "earned": earned, "inv": inv, "up": up, "ammo": ammo, "play_time": play_time,
+		"won": false, "player": null, "muted": sfx.muted,
 	}))
 	f.close()
 	get_tree().reload_current_scene()
@@ -278,6 +294,7 @@ func pause() -> void:
 	playing = false
 	_release_controls()
 	hud.set_prestige(cores, Config.prestige_cores(run_earned))
+	hud.set_levels(level, unlocked_level)
 	hud.show_menu("Weiter", true)
 	save_game()
 
@@ -651,7 +668,9 @@ func _check_win() -> void:
 	if won or chunk.alive_count > 0:
 		return
 	won = true
-	count("levels")
+	if level >= unlocked_level:
+		count("levels")
+	unlocked_level = maxi(unlocked_level, mini(level + 1, Config.LEVELS.size() - 1))
 	cores += Config.LEVELS[level].cores
 	S = Config.stats(up, cores, achieved.size())
 	hud.toast("⚛️ Bauwerk geschafft: +%d Kerne (dauerhaft +10 %% je Kern)" % Config.LEVELS[level].cores)
@@ -768,3 +787,18 @@ func _start_autotest() -> void:
 	_check_achievements()
 	print("AUTOTEST erfolge: %d freigeschaltet: %s" % [achieved.size(), ", ".join(achieved)])
 	get_tree().quit()
+
+# Test der Level-Auswahl (Startoption --leveltest): wechselt zu Bauwerk 3 und prüft nach dem Neuladen
+func _level_test() -> void:
+	await get_tree().process_frame
+	if FileAccess.file_exists("user://leveltest"):
+		DirAccess.remove_absolute(ProjectSettings.globalize_path("user://leveltest"))
+		print("LEVELTEST nach Wechsel: level=%d (%s) blocks=%d unlocked=%d gespeichert=%s" % [
+			level, Config.LEVELS[level].name, chunk.n, unlocked_level, str(chunks.keys())])
+		get_tree().quit()
+		return
+	FileAccess.open("user://leveltest", FileAccess.WRITE).store_string("1")
+	chunk.damage(chunk.exposed_arr[0], 1e9)
+	unlocked_level = 2
+	print("LEVELTEST vorher: level=%d blocks=%d alive=%d" % [level, chunk.n, chunk.alive_count])
+	select_level(2)

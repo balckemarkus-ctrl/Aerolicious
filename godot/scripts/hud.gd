@@ -12,6 +12,7 @@ signal ammo_selected(index: int)
 signal next_level_pressed
 signal prestige_pressed
 signal achievements_pressed
+signal level_selected(index: int)
 
 const INK := Color("e6f4ff")        # Schrift: helles Blau-Weiß
 const NEON := Color("2fe8ff")
@@ -49,6 +50,7 @@ var _shop_credits_val := 0.0
 var _shop_up := {}
 var prestige_btn: Button
 var cores_label: Label
+var level_buttons: Array[Button] = []
 var ach_panel: Control
 var ach_grid: GridContainer
 var ach_title: Label
@@ -343,6 +345,17 @@ func _build_menu() -> void:
 	keys.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	keys.add_theme_color_override("font_color", NEON)
 	box.add_child(keys)
+	# Level-Auswahl
+	var lrow := HBoxContainer.new()
+	lrow.alignment = BoxContainer.ALIGNMENT_CENTER
+	lrow.add_theme_constant_override("separation", 8)
+	for i in Config.LEVELS.size():
+		var lb := button("", 16, false)
+		lb.custom_minimum_size = Vector2(150, 52)
+		lb.pressed.connect(func(): level_selected.emit(i))
+		lrow.add_child(lb)
+		level_buttons.append(lb)
+	box.add_child(lrow)
 	var row := HBoxContainer.new()
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
 	row.add_theme_constant_override("separation", 16)
@@ -379,6 +392,14 @@ func _on_reset() -> void:
 		reset_btn.text = "Wirklich? Nochmal tippen"
 		return
 	reset_pressed.emit()
+
+func set_levels(current: int, unlocked: int) -> void:
+	for i in level_buttons.size():
+		var b := level_buttons[i]
+		var open := i <= unlocked
+		b.text = ("%d · %s" % [i + 1, Config.LEVELS[i].name]) if open else "%d · 🔒" % (i + 1)
+		b.disabled = not open
+		b.add_theme_stylebox_override("normal", style(40, 0.95, Color("ff2fc8") if i == current else Color("1c2a3e")))
 
 var prestige_armed := false
 var _prestige_gain := 0
