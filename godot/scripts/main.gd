@@ -3,7 +3,11 @@ extends Node3D
 # Splitter, Konverter, Shop, Drohnen, Speichern, Start/Pause/Sieg, Desktop- und Touch-Steuerung.
 # Startoptionen (nach "--"): --touch erzwingt Touch-Modus, --autotest spielt kurz selbst und beendet.
 
-const SAVE_PATH := "user://save.json"
+const SETTINGS_PATH := "user://settings.json"
+const SLOTS := 3
+
+var slot := 1
+var save_path := "user://save_1.json"
 
 var args := OS.get_cmdline_user_args()
 var touch_mode := OS.has_feature("mobile") or "--touch" in args
@@ -58,6 +62,35 @@ var save_timer := 5.0
 var hud_timer := 0.0
 var time := 0.0
 
+# Spielstand-Platz aus den Einstellungen; alter Einzel-Spielstand wird zu Platz 1
+func _init() -> void:
+	if FileAccess.file_exists("user://save.json") and not FileAccess.file_exists("user://save_1.json"):
+		DirAccess.rename_absolute(ProjectSettings.globalize_path("user://save.json"), ProjectSettings.globalize_path("user://save_1.json"))
+	if FileAccess.file_exists(SETTINGS_PATH):
+		var st = JSON.parse_string(FileAccess.get_file_as_string(SETTINGS_PATH))
+		if typeof(st) == TYPE_DICTIONARY:
+			slot = clampi(int(st.get("slot", 1)), 1, SLOTS)
+	save_path = "user://save_%d.json" % slot
+
+static func slot_summary(n: int) -> String:
+	var p := "user://save_%d.json" % n
+	if not FileAccess.file_exists(p):
+		return "Leer"
+	var d = JSON.parse_string(FileAccess.get_file_as_string(p))
+	if typeof(d) != TYPE_DICTIONARY:
+		return "Leer"
+	var lv := clampi(int(d.get("level", 0)), 0, Config.LEVELS.size() - 1)
+	return "%s · %s Perlen · %d Kerne" % [Config.LEVELS[lv].name, Hud.fmt(float(d.get("credits", 0))), int(d.get("cores", 0))]
+
+func select_slot(n: int) -> void:
+	if n == slot:
+		return
+	save_game()
+	var f := FileAccess.open(SETTINGS_PATH, FileAccess.WRITE)
+	f.store_string(JSON.stringify({ "slot": n }))
+	f.close()
+	get_tree().reload_current_scene()
+
 func _ready() -> void:
 	world = World.new()
 	add_child(world)
@@ -106,6 +139,8 @@ func _ready() -> void:
 	hud.buy_pressed.connect(buy)
 	hud.prestige_pressed.connect(prestige)
 	hud.level_selected.connect(select_level)
+	hud.slot_selected.connect(select_slot)
+	hud.set_slots(slot, range(1, SLOTS + 1).map(slot_summary))
 	hud.achievements_pressed.connect(func(): hud.show_achievements(achieved))
 	hud.continue_pressed.connect(func():
 		win_open = false
@@ -198,9 +233,9 @@ func _prewarm() -> void:
 # ---------- Spielstand ----------
 
 func _read_save():
-	if not FileAccess.file_exists(SAVE_PATH):
+	if not FileAccess.file_exists(save_path):
 		return null
-	var d = JSON.parse_string(FileAccess.get_file_as_string(SAVE_PATH))
+	var d = JSON.parse_string(FileAccess.get_file_as_string(save_path))
 	return d if typeof(d) == TYPE_DICTIONARY and d.get("v", 0) == 1 else null
 
 func _saved_level() -> int:
@@ -223,7 +258,7 @@ func unlocked_list() -> Array:
 func save_game() -> void:
 	if autotest:
 		return
-	var f := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
+	var f := FileAccess.open(save_path, FileAccess.WRITE)
 	if f == null:
 		return
 	f.store_string(JSON.stringify({
@@ -269,7 +304,7 @@ func select_level(i: int) -> void:
 	chunks[str(level)] = "" if chunk.alive_count == 0 else chunk.serialize()
 	level = i
 	won = false
-	var f := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
+	var f := FileAccess.open(save_path, FileAccess.WRITE)
 	f.store_string(JSON.stringify({
 		"v": 1, "level": level, "cores": cores, "run_earned": run_earned, "shots": shots, "counters": counters,
 		"achieved": achieved, "unlocked_level": unlocked_level, "chunks": chunks, "chunk": chunks.get(str(level), ""),
@@ -280,7 +315,7 @@ func select_level(i: int) -> void:
 	get_tree().reload_current_scene()
 
 func reset_game() -> void:
-	DirAccess.remove_absolute(ProjectSettings.globalize_path(SAVE_PATH))
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(save_path))
 	get_tree().reload_current_scene()
 
 # ---------- Start / Pause ----------
@@ -600,7 +635,7 @@ func prestige() -> void:
 	cores += gain
 	count("prestiges")
 	_check_achievements()
-	var f := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
+	var f := FileAccess.open(save_path, FileAccess.WRITE)
 	f.store_string(JSON.stringify({
 		"v": 1, "level": 0, "cores": cores, "run_earned": 0.0, "shots": shots, "counters": counters, "achieved": achieved, "chunk": "", "credits": 0.0,
 		"earned": earned, "inv": [0, 0, 0, 0, 0], "up": {}, "ammo": 0, "play_time": play_time, "won": false,

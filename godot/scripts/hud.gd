@@ -13,6 +13,7 @@ signal next_level_pressed
 signal prestige_pressed
 signal achievements_pressed
 signal level_selected(index: int)
+signal slot_selected(n: int)
 
 const INK := Color("e6f4ff")        # Schrift: helles Blau-Weiß
 const NEON := Color("2fe8ff")
@@ -77,6 +78,7 @@ var _shop_up := {}
 var prestige_btn: Button
 var cores_label: Label
 var level_buttons: Array[Button] = []
+var slot_buttons: Array[Button] = []
 var ach_panel: Control
 var ach_grid: GridContainer
 var ach_title: Label
@@ -412,6 +414,15 @@ func _build_menu() -> void:
 	var spacer := Control.new()
 	spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	left.add_child(spacer)
+	left.add_child(caption("Spielstand"))
+	for n in range(1, 4):
+		var sb_btn := button("", 14, false)
+		sb_btn.custom_minimum_size = Vector2(0, 44)
+		sb_btn.alignment = HORIZONTAL_ALIGNMENT_LEFT
+		sb_btn.clip_text = true
+		sb_btn.pressed.connect(func(): slot_selected.emit(n))
+		left.add_child(sb_btn)
+		slot_buttons.append(sb_btn)
 	reset_btn = button("Neues Spiel", 16, false)
 	reset_btn.custom_minimum_size = Vector2(0, 46)
 	reset_btn.visible = false
@@ -469,6 +480,16 @@ func set_levels(current: int, unlocked: int) -> void:
 		b.text = "%02d   %s" % [i + 1, Config.LEVELS[i].name if open else "Gesperrt"]
 		b.disabled = not open
 		if i == current:
+			var sb := style(6, 1.0, Color("0f2a3a"))
+			sb.border_color = NEON
+			sb.set_border_width_all(2)
+			b.add_theme_stylebox_override("normal", sb)
+
+func set_slots(current: int, summaries: Array) -> void:
+	for i in slot_buttons.size():
+		var b := slot_buttons[i]
+		b.text = "%d   %s" % [i + 1, summaries[i]]
+		if i + 1 == current:
 			var sb := style(6, 1.0, Color("0f2a3a"))
 			sb.border_color = NEON
 			sb.set_border_width_all(2)
