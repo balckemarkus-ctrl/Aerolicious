@@ -1,0 +1,85 @@
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; overflow: hidden; background: #8fd6ff; }
+body { font-family: "Segoe UI", "Trebuchet MS", system-ui, sans-serif; color: #0b3557; user-select: none; }
+canvas#game { display: block; width: 100vw; height: 100vh; }
+.hidden { display: none !important; }
+
+.glass {
+  background: linear-gradient(180deg, rgba(255,255,255,0.78) 0%, rgba(225,245,255,0.55) 48%, rgba(190,232,255,0.5) 52%, rgba(220,248,255,0.65) 100%);
+  border: 1px solid rgba(255,255,255,0.9);
+  border-radius: 16px;
+  box-shadow: 0 6px 24px rgba(0,70,140,0.25), inset 0 1px 0 #fff;
+  backdrop-filter: blur(8px);
+}
+.label { font-size: 12px; text-transform: uppercase; letter-spacing: .08em; opacity: .7; font-weight: 700; }
+.row { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; font-weight: 700; }
+.bar { height: 14px; border-radius: 8px; background: rgba(0,60,120,0.15); overflow: hidden; margin: 6px 0; box-shadow: inset 0 1px 3px rgba(0,40,80,.3); }
+.bar.small { height: 9px; }
+.bar > div { height: 100%; width: 0; border-radius: 8px; background: linear-gradient(180deg, #a6f37c, #3cc23a 55%, #2fa52d); transition: width .2s; box-shadow: inset 0 1px 0 rgba(255,255,255,.7); }
+#bagFill { background: linear-gradient(180deg, #8fe2ff, #1ea2e8 55%, #1585d0); }
+#bagFill.full { background: linear-gradient(180deg, #ffb48f, #ff6a3d 55%, #e04a20); }
+
+#crosshair { position: fixed; left: 50%; top: 50%; width: 14px; height: 14px; margin: -7px 0 0 -7px; border: 2px solid rgba(255,255,255,.95); border-radius: 50%; box-shadow: 0 0 6px rgba(0,80,160,.6); pointer-events: none; }
+#crosshair::after { content: ""; position: absolute; left: 50%; top: 50%; width: 3px; height: 3px; margin: -1.5px; background: #fff; border-radius: 50%; }
+
+#progress { position: fixed; top: 16px; left: 50%; transform: translateX(-50%); width: min(420px, calc(100vw - 32px)); padding: 10px 16px; }
+#tiers { display: flex; justify-content: space-between; gap: 6px; font-size: 12px; font-weight: 700; }
+#tiers span, #inv span { display: inline-flex; align-items: center; gap: 4px; }
+.dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; box-shadow: inset 0 -2px 2px rgba(0,0,0,.2), 0 0 0 1px rgba(255,255,255,.8); }
+
+#wallet { position: fixed; left: 16px; bottom: 16px; width: 240px; padding: 12px 16px; }
+.credits { display: flex; align-items: center; gap: 8px; font-size: 26px; font-weight: 800; color: #0a5a2a; }
+.coin { width: 22px; height: 22px; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #fff, #8cf06a 35%, #22a83a); box-shadow: 0 1px 3px rgba(0,60,0,.4); }
+#inv { display: flex; flex-wrap: wrap; gap: 8px; font-size: 12px; font-weight: 700; }
+
+#ammo { position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%); display: flex; gap: 8px; }
+.slot { width: 92px; padding: 8px 6px; text-align: center; font-size: 12px; font-weight: 700; opacity: .9; }
+.slot .num { font-size: 11px; opacity: .6; }
+.slot .ball { width: 26px; height: 26px; margin: 4px auto; border-radius: 50%; box-shadow: inset -3px -4px 6px rgba(0,0,0,.2), inset 3px 3px 6px rgba(255,255,255,.8); }
+.slot.active { outline: 3px solid #fff; box-shadow: 0 0 18px rgba(80,200,255,.9); transform: translateY(-4px); }
+.slot.locked { opacity: .4; filter: grayscale(1); }
+
+#prompt { position: fixed; left: 50%; top: 60%; transform: translateX(-50%); padding: 8px 18px; font-weight: 800; }
+#hint { position: fixed; right: 16px; bottom: 16px; padding: 8px 12px; font-size: 12px; max-width: 260px; opacity: .85; }
+
+#toasts { position: fixed; right: 16px; top: 16px; display: flex; flex-direction: column; gap: 8px; align-items: flex-end; pointer-events: none; }
+.toast { padding: 8px 14px; font-weight: 800; animation: toast 2.6s forwards; }
+@keyframes toast { 0% { opacity: 0; transform: translateX(20px); } 8% { opacity: 1; transform: none; } 80% { opacity: 1; } 100% { opacity: 0; } }
+
+.overlay { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; background: radial-gradient(ellipse at center, rgba(255,255,255,.15), rgba(0,60,120,.35)); padding: 16px; }
+.panel { padding: 24px 28px; max-height: calc(100vh - 32px); overflow: auto; }
+.panel.big { width: min(560px, 100%); text-align: center; }
+h1 { margin: 0; font-size: 52px; letter-spacing: .02em; color: #fff; text-shadow: 0 2px 0 #3aa0e0, 0 4px 14px rgba(0,80,160,.6); }
+h2 { margin: 0; }
+.sub { font-size: 16px; opacity: .8; }
+.howto { text-align: left; line-height: 1.7; margin: 12px auto; max-width: 420px; }
+.keys { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px 14px; font-size: 13px; margin: 14px 0 18px; }
+kbd { background: linear-gradient(#fff, #dbeefa); border: 1px solid #9cc7e6; border-radius: 6px; padding: 1px 6px; font-family: inherit; font-weight: 700; box-shadow: 0 2px 0 #9cc7e6; }
+
+.btn { font: inherit; font-weight: 800; font-size: 18px; color: #fff; border: 1px solid #fff; border-radius: 999px; padding: 10px 34px; margin: 6px; cursor: pointer;
+  background: linear-gradient(180deg, #8ff07a 0%, #3cc63a 50%, #22a524 51%, #5fdc4a 100%);
+  box-shadow: 0 4px 14px rgba(0,100,30,.35), inset 0 1px 0 rgba(255,255,255,.8); text-shadow: 0 1px 2px rgba(0,60,0,.5); }
+.btn:hover { filter: brightness(1.08); }
+.btn:active { transform: translateY(1px); }
+.btn.ghost { background: linear-gradient(180deg, #e8f7ff, #b9e2fb); color: #0b3557; text-shadow: none; }
+.btn.small { font-size: 14px; padding: 6px 18px; }
+.btn:disabled { filter: grayscale(.8); opacity: .55; cursor: default; }
+
+.panel.shop { width: min(900px, 100%); }
+.shop-head { display: flex; align-items: center; gap: 16px; margin-bottom: 14px; }
+.shop-head h2 { flex: 1; font-size: 30px; color: #0b5ea8; }
+#shopGrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 12px; }
+.card { padding: 12px 14px; display: flex; flex-direction: column; gap: 6px; background: rgba(255,255,255,.6); border: 1px solid #fff; border-radius: 14px; }
+.card .title { display: flex; align-items: center; gap: 8px; font-weight: 800; }
+.card .icon { font-size: 22px; }
+.card .desc { font-size: 13px; opacity: .8; flex: 1; }
+.card .lvl { font-size: 12px; font-weight: 700; opacity: .65; }
+.card .btn { margin: 0; font-size: 15px; padding: 6px 12px; }
+.card.maxed { opacity: .6; }
+
+@media (max-width: 700px) {
+  #hint { display: none; }
+  #wallet { width: 190px; }
+  .slot { width: 64px; font-size: 10px; }
+  h1 { font-size: 38px; }
+}

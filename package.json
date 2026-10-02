@@ -1,0 +1,28 @@
+{
+  "name": "aero-shards",
+  "version": "1.0.0",
+  "description": "Entspannter 3D-Block-Breaker im Frutiger-Aero-Stil (Browser, Three.js)",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/balckemarkus-ctrl/Aerolicious.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/balckemarkus-ctrl/Aerolicious/issues"
+  },
+  "homepage": "https://github.com/balckemarkus-ctrl/Aerolicious#readme",
+  "dependencies": {
+    "three": "^0.186.1"
+  },
+  "devDependencies": {
+    "vite": "^8.3.2"
+  },
+  "type": "module"
+}
