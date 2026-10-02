@@ -8,11 +8,11 @@ Trailer). Gesteuert wird beides von Claude Code über MCP-Server.
 
 ## 0. Die wichtigste Voraussetzung
 
-Blender und Unreal laufen auf **deinem PC**. Ihre MCP-Server sind nur lokal erreichbar
+Blender und Unreal laufen auf **deinem Mac**. Ihre MCP-Server sind nur lokal erreichbar
 (Socket bzw. HTTP auf `localhost`). Eine Cloud-Session wie die, in der die Web-Version entstanden ist,
 kommt da nicht heran.
 
-**Deshalb muss Claude Code lokal auf demselben PC laufen**, auf dem Blender und UE5 installiert sind.
+**Deshalb muss Claude Code lokal auf demselben Mac laufen**, auf dem Blender und UE5 installiert sind.
 Das geht mit der Claude-Code-CLI im Terminal oder mit dem Code-Tab der Claude-Desktop-App.
 Das Repository synchronisieren wir weiter über GitHub.
 
@@ -20,28 +20,33 @@ Das Repository synchronisieren wir weiter über GitHub.
 
 ## Teil A – Was du machen musst
 
-### A1. Hardware prüfen
+### A1. Hardware: MacBook Pro mit M5
+
+Der Plan läuft auf einem **MacBook Pro mit Apple M5**. Unreal Engine 5 und Blender laufen beide nativ auf Apple Silicon.
 
 | | Minimum | Empfohlen |
 | --- | --- | --- |
-| Betriebssystem | Windows 10/11, 64 Bit | Windows 11 |
-| Grafikkarte | 8 GB VRAM, DirectX 12 (z. B. RTX 2070) | RTX 3070 / 4070 oder besser (Lumen, Nanite) |
-| Arbeitsspeicher | 16 GB | 32 GB oder mehr |
-| Speicher | 150 GB frei auf SSD | 250 GB frei auf NVMe-SSD |
+| Arbeitsspeicher (Unified Memory) | 24 GB | 32 GB oder mehr (16 GB nur mit Abstrichen) |
+| Speicher | 150 GB frei | 250 GB frei (eine externe Thunderbolt-/USB4-SSD geht auch) |
+| Kühlung/Strom | — | Beim Rendern und Kompilieren am Netzteil arbeiten |
+
+Unterschiede zu Windows, die der Plan berücksichtigt:
+- **Xcode statt Visual Studio** für C++.
+- **Kein Live Coding auf dem Mac.** Bei C++-Änderungen den Editor schließen, im Terminal bauen und neu öffnen.
+  Deshalb wird Phase 3 in größeren Schritten gebaut.
+- **Windows-Build nur von einem Windows-Rechner.** Vom Mac aus lässt sich nur ein Mac-Build packen.
+- **ProRes-Ausgabe** für den Trailer funktioniert auf dem Mac nativ.
 
 ### A2. Software installieren
 
-1. **Git** und **Git LFS** (für große Binärdateien wie `.blend`, `.fbx`, `.uasset`), danach einmal `git lfs install`.
+1. **Homebrew**, darüber **Git** und **Git LFS** (`brew install git git-lfs`, dann `git lfs install`),
+   außerdem **uv** (`brew install uv`) und optional **ffmpeg** (`brew install ffmpeg`).
 2. **Claude Code** lokal installieren und anmelden.
-3. **Python 3.11+** und **uv** (Paketmanager von Astral). Damit läuft der Blender-MCP-Server.
-4. **Blender** in der aktuellen LTS-Version.
-5. **Epic Games Launcher**, darin **Unreal Engine 5.8**, falls verfügbar.
-   Ab 5.8 bringt Unreal laut Berichten ein eigenes, experimentelles MCP-Plugin mit (siehe A4).
-   Bei einer älteren Version greifen wir auf ein Community-Plugin zurück.
-6. **Visual Studio 2022** (Community reicht) mit der Arbeitslast **„Spieleentwicklung mit C++“** und dem
-   Windows SDK. Nötig, weil die Spiellogik in C++ entsteht. Die genaue VS-Version richtet sich nach der UE-Version
-   und steht in den Release Notes.
-7. Optional: **ffmpeg** (Videoschnitt) und **DaVinci Resolve** (Endschnitt des Trailers, kostenlos).
+3. **Blender** in der aktuellen Version für Apple Silicon.
+4. **Xcode** aus dem App Store, in der Version, die die Release Notes der UE-Version verlangen.
+   Danach einmal öffnen, Lizenz bestätigen und `xcode-select --install` ausführen.
+5. **Epic Games Launcher für macOS**, darin **Unreal Engine 5.8**, falls verfügbar (siehe A5).
+6. Optional: **DaVinci Resolve** für den Endschnitt des Trailers.
 
 ### A3. Repository lokal holen
 
@@ -52,7 +57,7 @@ git checkout ccr-5dadc334-w4erwj   # oder main, falls bis dahin gemergt
 ```
 
 Den Ordner bitte **nicht** in OneDrive oder Dropbox legen. Unreal-Projekte und Sync-Dienste vertragen sich schlecht.
-Gut ist zum Beispiel `C:\Projekte\Aerolicious`.
+Gut ist zum Beispiel `~/Projekte/Aerolicious`.
 
 ### A4. Blender-MCP einrichten
 
@@ -142,7 +147,7 @@ Feedback, danach wird committet.
 
 ### Phase 3 – Unreal-Grundgerüst und Spiellogik in C++ (4–6 Sessions)
 
-Code schreibe ich direkt als Dateien und baue ihn über Visual Studio bzw. Live Coding. Das ist deutlich
+Code schreibe ich direkt als Dateien und baue ihn per Terminal mit Xcode und dem Unreal Build Tool. Das ist deutlich
 robuster, als Blueprint-Graphen per MCP zu „klicken“. Den MCP nutze ich für alles im Editor:
 Assets importieren, Materialien, Level, Niagara, UMG, Sequencer.
 
@@ -188,7 +193,8 @@ Assets importieren, Materialien, Level, Niagara, UMG, Sequencer.
 
 ### Phase 7 – Fertiger Build (1 Session)
 
-- Windows-Shipping-Build packen, testen, als ZIP bereitstellen.
+- macOS-Shipping-Build packen, testen, als ZIP bereitstellen.
+- Ein Windows-Build braucht einen Windows-PC (eigener Rechner oder Cloud-Rechner) mit demselben Projekt.
 
 **Grobe Gesamtschätzung:** etwa 16–25 Arbeits-Sessions, abhängig von Feedback-Runden und Detailgrad.
 
@@ -199,5 +205,5 @@ Assets importieren, Materialien, Level, Niagara, UMG, Sequencer.
 - **Die MCP-Server sind jung bzw. experimentell.** Einzelne Tools können fehlen oder sich zwischen Versionen ändern.
   Notfalls weiche ich auf Python-Skripte im Editor oder auf C++ aus.
 - **Ich sehe nur, was die Tools zeigen.** Screenshots von dir helfen, besonders beim Spielgefühl.
-- **Wartezeiten:** Shader-Kompilierung, C++-Builds und Renderings dauern auf deinem PC teils viele Minuten.
+- **Wartezeiten:** Shader-Kompilierung, C++-Builds und Renderings dauern auf dem Mac teils viele Minuten.
 - **Rechtliches:** Eigener Name, eigene Modelle, eigene Sounds. Keine Inhalte aus dem Original-Spiel übernehmen.
